@@ -1,0 +1,24 @@
+{
+  "uom_aliases": {
+    "pcs": "EA",
+    "pc": "EA",
+    "piece": "EA",
+    "units": "EA",
+    "EA": "EA"
+  },
+  "supplier_aliases": {
+    "SIEMENS": "SIEMENS MOBILITY",
+    "SIEMENS MOBILITY GMBH": "SIEMENS MOBILITY",
+    "SIEMENS MOBILITY SAS": "SIEMENS MOBILITY"
+  },
+  "reference_aliases": {
+    "CTRL-AIR01": "CTRL-AIR-01",
+    "CTRL-HVAC-001": "CTRL-AIR-01"
+  },
+  "voltage_aliases": {
+    "24V": "24 V DC",
+    "24 V": "24 V DC",
+    "24VDC": "24 V DC",
+    "24 VOLTS DC": "24 V DC"
+  }
+}
