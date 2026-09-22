@@ -1,0 +1,13 @@
+resolution_id,entity_type,raw_value,canonical_id,expected_status,why
+R001,component,CTRL-AIR01,COMP-001,accept,same component as CTRL-AIR-01; supported by engineering note N-001
+R002,component,CTRL-HVAC-001,COMP-001,accept,explicit engineering equivalence statement
+R003,component,CTRL-AIR-O1,COMP-001,accept,known zero/O transcription error; engineering note N-002
+R004,component,PIS-DISPLAY-15,COMP-017,accept,same display family; corroborated by notes
+R005,component,PAX-DISP-15,COMP-017,accept,same physical display specification across project references
+R006,component,DISPLAY-15IN,COMP-017,review,"high textual similarity, but explicit source evidence should be reviewed"
+R007,supplier,Siemens,SUP-001,accept,ERP supplier master + repeated source usage
+R008,supplier,SIEMENS MOBILITY,SUP-001,accept,supplier alias
+R009,supplier,Thales GTS,SUP-004,accept,supplier alias and master-data match
+R010,component,LIGHT-DRIVER-01,COMP-037,review,legacy alias explicitly mentioned in engineering note N-026
+R011,component,DCTRL-010,COMP-010,accept_identity,distinct export material; do not merge with COMP-008 despite functional similarity
+R012,component,PAX-COUNT-CAM-RUGGED,COMP-034,accept_identity,distinct rugged variant; functionally related but not identical to COMP-033

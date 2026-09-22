@@ -1,0 +1,6 @@
+variant_ref,variant_name,train_family,market,climate_class,capacity_class,voltage_system,notes
+REGIO-STD,Regional Standard,REGIO-X,France,Temperate,Standard,24 V DC auxiliary,Baseline configuration.
+REGIO-COMFORT,Regional Comfort,REGIO-X,France,Temperate,Standard,24 V DC auxiliary,Passenger comfort configuration; expected reuse of baseline systems.
+REGIO-NORDIC,Regional Nordic,REGIO-X,Nordics,Cold,Standard,24 V DC auxiliary,Low-temperature operating envelope down to -35 °C.
+REGIO-HC,Regional High Capacity,REGIO-X,France,Temperate,High,24 V DC auxiliary,Higher passenger capacity; selected systems require higher airflow and duty cycle.
+REGIO-EXPORT,Regional Export,REGIO-X,International,Temperate,Standard,48 V DC auxiliary,Export electrical architecture; selected modules are intentionally different.

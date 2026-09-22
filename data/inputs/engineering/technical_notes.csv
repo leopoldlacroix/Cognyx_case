@@ -1,0 +1,72 @@
+note_id,object_type,object_reference,language,author,date,note_text
+N-001,component,CTRL-HVAC-001,en,M. Bernard,2026-02-11,Equivalent to CTRL-AIR-01 used on the previous platform. Same 24V DC supply and CAN interface. Approved for standard and comfort configurations.
+N-002,component,CTRL-AIR-O1,fr,S. Martin,2026-02-13,Référence saisie avec un O au lieu du zéro dans certaines extractions PLM. Se reporter à CTRL-AIR-01.
+N-003,component,TEMP-SENS-NORDIC,en,A. Johansson,2026-02-15,Nordic temperature sensor is required below -20°C. Minimum operating temperature is -40°C.
+N-004,assembly,HVAC-N01,en,A. Johansson,2026-02-16,Same mounting interface and controller as the baseline HVAC module. Fan and temperature sensor are upgraded for low temperature operation.
+N-005,component,DCTRL-010,en,J. Leroy,2026-02-18,Export door controller is a functional counterpart to DCTRL-001 but uses 48V DC auxiliary power. Do not merge the two material identities.
+N-006,component,CTRL-DOOR-HD,fr,S. Martin,2026-02-19,"Version renforcée du contrôleur de porte, utilisée lorsque le cycle de porte est plus élevé. Même interface CAN que la version standard."
+N-007,component,DISPLAY-15IN,en,P. Dubois,2026-02-20,"Same display family as PAX-DISP-15 and PIS-DISPLAY-15. The PLM references differ by project, not by physical display specification."
+N-008,assembly,DISPLAY-MOD-HC,en,P. Dubois,2026-02-21,High-capacity train uses the same passenger information architecture as the standard variant. Mechanical mounting was not changed.
+N-009,component,PAX-DISP-RUGGED,en,A. Johansson,2026-02-22,Rugged display is required for the Nordic configuration due to the colder operating environment. It should not be treated as the same component as the standard display.
+N-010,component,PIS-CTRL-01,fr,C. Moreau,2026-02-23,"Le contrôleur PIS est commun aux configurations Standard, Comfort et Nordic."
+N-011,component,APC-750-24,en,J. Leroy,2026-02-24,"Baseline auxiliary converter. 750V DC input, 24V DC output. Used on all non-export configurations."
+N-012,component,POWER-CONV-NORDIC,en,A. Johansson,2026-02-25,Nordic version keeps the same electrical architecture but is qualified to -40°C. Same input/output voltage as baseline.
+N-013,component,AUX-CONV-EXP,en,J. Leroy,2026-02-26,Export converter belongs to the 48V auxiliary electrical architecture. It is not an identity match with APC-750-24 even though the function is similar.
+N-014,component,BAT-MON-UNIT,fr,C. Moreau,2026-02-27,Unité de surveillance batterie utilisée sur les variantes 24V.
+N-015,component,BMU-027,en,J. Leroy,2026-02-28,"48V export battery monitoring unit. Functional equivalent of the 24V unit, but different electrical interface."
+N-016,component,DRIVER-CAB-CU,en,P. Dubois,2026-03-01,"Cab controller is reused across standard, comfort and high-capacity variants."
+N-017,component,CAB-CU-NORDIC,en,A. Johansson,2026-03-02,Nordic cab controller is based on the same architecture as the baseline unit and adds low-temperature qualification to -40°C.
+N-018,component,PASSCOUNT-CAMERA,en,C. Moreau,2026-03-03,Camera family is shared across variants. Rugged camera is preferred when the environmental qualification requires it.
+N-019,component,PASSCOUNT-CAMERA-RUGGED,en,A. Johansson,2026-03-04,Rugged camera has the same communication protocol and optical function as the standard camera. Housing and temperature qualification differ.
+N-020,component,PASSCOUNT-CPU,fr,S. Martin,2026-03-05,"Le processeur de comptage voyageurs est identique sur les variantes Standard, Comfort et Export."
+N-021,assembly,PAX-COUNT-MOD-HC,en,C. Moreau,2026-03-06,High-capacity train uses additional counting cameras but the processor and software architecture remain common.
+N-022,component,LED-DRV-ND,en,A. Johansson,2026-03-07,Nordic LED driver is the cold-rated version of the baseline driver. Same DALI interface and 24V supply.
+N-023,component,LIGHT-DRIVER-01,en,J. Leroy,2026-03-08,Some legacy PLM exports refer to this material as LDR-037. Both references should resolve to the same material.
+N-024,component,CTRL-HVAC-001,fr,Engineering,2026-03-29,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-025,component,FAN-AIR01,en,Engineering,2026-03-13,Installation note: component checked during design review. No open issue.
+N-026,component,FAN-AIR-HC,fr,Maintenance,2026-04-03,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-027,component,FAN-AIR-ND,fr,Maintenance,2026-04-17,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-028,component,TEMP-SENS-01,fr,Engineering,2026-03-12,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-029,component,TEMP-SENSOR-ND,fr,Engineering,2026-04-20,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-030,component,FILTER-HVAC-01,en,Maintenance,2026-04-13,Replacement recommendation: retain current material reference until next revision.
+N-031,component,DCTRL-001,en,Maintenance,2026-04-29,Replacement recommendation: retain current material reference until next revision.
+N-032,component,CTRL-DOOR-HD,en,Maintenance,2026-03-23,Replacement recommendation: retain current material reference until next revision.
+N-033,component,CTRL-DOOR-EXP,en,Maintenance,2026-04-11,Replacement recommendation: retain current material reference until next revision.
+N-034,component,MOTOR-DOOR-01,en,Engineering,2026-05-03,Installation note: component checked during design review. No open issue.
+N-035,component,DPS-01,en,Maintenance,2026-04-18,Replacement recommendation: retain current material reference until next revision.
+N-036,component,BrakeCtrl01,fr,Maintenance,2026-03-23,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-037,component,BRAKE-CU-014,fr,Maintenance,2026-04-02,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-038,component,BRAKE-P-SENS,en,Maintenance,2026-05-03,Replacement recommendation: retain current material reference until next revision.
+N-039,component,BRK-VLV-01,en,Engineering,2026-04-03,Installation note: component checked during design review. No open issue.
+N-040,component,PAX-DISP-15,en,Maintenance,2026-03-17,Replacement recommendation: retain current material reference until next revision.
+N-041,component,DISPLAY-15-RUGGED,en,Maintenance,2026-04-18,Replacement recommendation: retain current material reference until next revision.
+N-042,component,CTRL-PIS-01,en,Engineering,2026-04-16,Installation note: component checked during design review. No open issue.
+N-043,component,AMP-PAX-01,en,Maintenance,2026-04-30,Replacement recommendation: retain current material reference until next revision.
+N-044,component,DISPLAY-MOUNT-01,en,Maintenance,2026-04-15,Replacement recommendation: retain current material reference until next revision.
+N-045,component,APC-750-24,fr,Engineering,2026-05-01,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-046,component,AUX-CONV-ND,fr,Maintenance,2026-03-31,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-047,component,CONV-FAN-01,en,Maintenance,2026-03-09,Replacement recommendation: retain current material reference until next revision.
+N-048,component,CONV-FAN-NORDIC,en,Maintenance,2026-04-04,Replacement recommendation: retain current material reference until next revision.
+N-049,component,BMU-001,fr,Maintenance,2026-04-19,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-050,component,BAT-MON-48V,fr,Maintenance,2026-05-04,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-051,component,BCS-028,fr,Engineering,2026-05-08,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-052,component,BTS-029,fr,Engineering,2026-03-19,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-053,component,DRIVER-CAB-CU,en,Maintenance,2026-04-20,Replacement recommendation: retain current material reference until next revision.
+N-054,component,CAB-CTRL-ND,en,Engineering,2026-04-17,Installation note: component checked during design review. No open issue.
+N-055,component,DRIVER-DISPLAY,fr,Engineering,2026-03-27,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-056,component,PAX-COUNT-CAM,en,Engineering,2026-04-09,Installation note: component checked during design review. No open issue.
+N-057,component,PCAM-034,fr,Maintenance,2026-03-18,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-058,component,PASSCOUNT-CPU,fr,Maintenance,2026-04-02,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-059,component,COUNTING-BRKT,fr,Maintenance,2026-04-29,Recommandation maintenance : conserver la référence actuelle jusqu'à la prochaine révision.
+N-060,component,LED-DRV-01,fr,Engineering,2026-03-09,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-061,component,LIGHT-DRIVER-NORDIC,en,Engineering,2026-04-06,Installation note: component checked during design review. No open issue.
+N-062,component,LLED-039,fr,Engineering,2026-05-07,Note de conception : composant vérifié lors de la revue de conception. Aucun point bloquant.
+N-063,component,ELM-040,en,Engineering,2026-04-09,Installation note: component checked during design review. No open issue.
+N-064,component,CTRL-AIR-01,en,M. Bernard,2026-05-12,"One legacy BOM extract lists 48V DC, but the current engineering specification and ERP material are 24V DC. Flag for review rather than silently normalizing."
+N-065,component,FAN-AIR-03,en,J. Leroy,2026-05-13,Description says high-capacity fan; supplier record and mechanical drawing have not yet been cross-checked in this pilot export.
+N-066,component,DOOR-CTRL-HD,fr,S. Martin,2026-05-14,"Attention : certains exports utilisent '24 V' et d'autres '24V'. Il s'agit d'une différence de format, pas de spécification."
+N-067,component,PIS-DISPLAY-15,en,P. Dubois,2026-05-15,"A legacy project note mentions 48V, but the current PIS architecture is 24V. Treat the legacy statement as stale evidence."
+N-068,assembly,PIS-M04-N,en,A. Johansson,2026-05-16,Nordic display module uses rugged displays. The control unit remains common with the baseline module.
+N-069,assembly,PORTES-EXP02,en,J. Leroy,2026-05-17,"Export door module is similar in structure to the standard door module, but the controller is on 48V. Structural similarity does not imply component identity."
+N-070,assembly,PASSCOUNT-MOD-N,fr,A. Johansson,2026-05-18,Module de comptage nordique : caméra renforcée recommandée pour la qualification basse température ; processeur identique à la version standard.
+N-071,assembly,ECL-EXP09,en,J. Leroy,2026-05-19,Export lighting assembly currently uses the standard mechanical light modules. Electrical driver qualification is under review.

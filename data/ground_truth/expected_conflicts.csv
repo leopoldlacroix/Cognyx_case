@@ -1,0 +1,6 @@
+conflict_id,type,entity,issue,value_a,value_b,resolution_hint
+C001,technical_specification,COMP-001,voltage,24 V DC,48 V DC,review; current engineering + ERP indicate 24 V DC
+C002,technical_specification,COMP-017,voltage,24 V DC,48 V DC,treat 48V statement as stale legacy note; retain provenance
+C003,variant_specificity,COMP-004,temperature_range,-40°C qualified,standard fan -20°C,"variant-specific, not a duplicate"
+C004,identity_vs_similarity,COMP-010,electrical_architecture,48 V DC,24 V DC,do not merge with COMP-008
+C005,data_quality,BOM-0301,duplicate_line,CTRL-AIR01,CTRL-AIR-01,duplicate reference candidate; review quantity impact before collapsing lines

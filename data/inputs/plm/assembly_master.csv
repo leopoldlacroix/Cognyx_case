@@ -1,0 +1,46 @@
+plm_assembly_ref,assembly_description,assembly_category,variant_ref,revision,lifecycle
+HVAC-M01,Climate control assembly,HVAC,REGIO-STD,A,Released
+HVAC-M02,HVAC module,HVAC,REGIO-COMFORT,C,Released
+HVAC-N01,Module HVAC,HVAC,REGIO-NORDIC,A,Released
+HVAC-HC01,HVAC module,HVAC,REGIO-HC,A,Released
+HVAC-EXP01,Climate control assembly,HVAC,REGIO-EXPORT,A,Released
+DOOR-M02,Door system control assembly,DOOR,REGIO-STD,C,Released
+DOOR-M02,Door system control assembly,DOOR,REGIO-COMFORT,A,Released
+DCTRL-MOD-01,Door system control assembly,DOOR,REGIO-NORDIC,B,Released
+DOOR-CTRL-HD,Door control module,DOOR,REGIO-HC,A,Released
+PORTES-EXP02,Door control module,DOOR,REGIO-EXPORT,A,Released
+BRAKE-M03,Brake control module,BRAKE,REGIO-STD,C,Released
+BRAKE-M03,Module de commande frein,BRAKE,REGIO-COMFORT,A,Released
+BRAKE-M03-N,Module de commande frein,BRAKE,REGIO-NORDIC,A,Released
+BRAKE-CTRL-M01,Module de commande frein,BRAKE,REGIO-HC,C,Released
+FREIN-EXP03,Module de commande frein,BRAKE,REGIO-EXPORT,C,Released
+PIS-M04,Module affichage voyageurs,PIS,REGIO-STD,A,Released
+PAX-INFO-M01,Module affichage voyageurs,PIS,REGIO-COMFORT,C,Released
+PIS-M04-N,Module affichage voyageurs,PIS,REGIO-NORDIC,A,Released
+DISPLAY-MOD-HC,Passenger information display module,PIS,REGIO-HC,C,Released
+PIS-M04-E,Module affichage voyageurs,PIS,REGIO-EXPORT,B,Released
+APC-M05,Module conversion puissance auxiliaire,POWER,REGIO-STD,A,Released
+APC-M05,Auxiliary power conversion module,POWER,REGIO-COMFORT,B,Released
+POWER-MOD-N,Auxiliary power conversion module,POWER,REGIO-NORDIC,A,Released
+AUX-CONV-M01,Module conversion puissance auxiliaire,POWER,REGIO-HC,A,Released
+AUX-CONV-EXP,Module conversion puissance auxiliaire,POWER,REGIO-EXPORT,B,Released
+BAT-M06,BMS monitoring sub-assembly,BATTERY,REGIO-STD,B,Released
+BAT-M06,Battery monitoring module,BATTERY,REGIO-COMFORT,C,Released
+BAT-M06,Module surveillance batterie,BATTERY,REGIO-NORDIC,C,Released
+BAT-MON-M01,Battery monitoring module,BATTERY,REGIO-HC,B,Released
+BATT-MOD-EXP,Battery monitoring module,BATTERY,REGIO-EXPORT,C,Released
+CAB-M07,Module contrôle cabine,CAB,REGIO-STD,C,Released
+CAB-CTRL-M01,Driver cab control assembly,CAB,REGIO-COMFORT,B,Released
+CAB-CTRL-N01,Driver cab control assembly,CAB,REGIO-NORDIC,A,Released
+CAB-CTRL-M01,Driver cab control assembly,CAB,REGIO-HC,A,Released
+DRIVER-MOD-EXP,Cab control module,CAB,REGIO-EXPORT,C,Released
+PCOUNT-M08,Passenger counting module,COUNTING,REGIO-STD,B,Released
+PASSCOUNT-MOD-01,Passenger counting module,COUNTING,REGIO-COMFORT,A,Released
+PASSCOUNT-MOD-N,Passenger counting module,COUNTING,REGIO-NORDIC,B,Released
+PAX-COUNT-MOD-HC,Module comptage voyageurs,COUNTING,REGIO-HC,B,Released
+PAX-COUNT-MOD-E,Passenger counting assembly,COUNTING,REGIO-EXPORT,B,Prototype
+LIGHT-M09,Interior lighting module,LIGHTING,REGIO-STD,B,Released
+LIGHT-M09,Module éclairage intérieur,LIGHTING,REGIO-COMFORT,A,Released
+INTERIOR-LIGHT-N01,Cabin lighting assembly,LIGHTING,REGIO-NORDIC,B,Released
+LIGHT-M09,Cabin lighting assembly,LIGHTING,REGIO-HC,C,Released
+ECL-EXP09,Cabin lighting assembly,LIGHTING,REGIO-EXPORT,A,Released

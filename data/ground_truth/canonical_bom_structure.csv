@@ -1,0 +1,28 @@
+assembly_id,assembly_name,component_id,quantity
+ASM-001,HVAC Module,COMP-001,1
+ASM-001,HVAC Module,COMP-002,2
+ASM-001,HVAC Module,COMP-005,2
+ASM-001,HVAC Module,COMP-007,1
+ASM-002,Door Control Module,COMP-008,1
+ASM-002,Door Control Module,COMP-011,2
+ASM-002,Door Control Module,COMP-012,2
+ASM-003,Brake Control Module,COMP-013,1
+ASM-003,Brake Control Module,COMP-015,4
+ASM-003,Brake Control Module,COMP-016,4
+ASM-004,Passenger Information Display Module,COMP-017,2
+ASM-004,Passenger Information Display Module,COMP-019,1
+ASM-004,Passenger Information Display Module,COMP-020,1
+ASM-004,Passenger Information Display Module,COMP-021,2
+ASM-005,Auxiliary Power Conversion Module,COMP-022,1
+ASM-005,Auxiliary Power Conversion Module,COMP-024,2
+ASM-006,Battery Monitoring Module,COMP-026,1
+ASM-006,Battery Monitoring Module,COMP-028,1
+ASM-006,Battery Monitoring Module,COMP-029,4
+ASM-007,Cab Control Module,COMP-030,1
+ASM-007,Cab Control Module,COMP-032,1
+ASM-008,Passenger Counting Module,COMP-033,4
+ASM-008,Passenger Counting Module,COMP-035,1
+ASM-008,Passenger Counting Module,COMP-036,4
+ASM-009,Interior Lighting Module,COMP-037,6
+ASM-009,Interior Lighting Module,COMP-039,12
+ASM-009,Interior Lighting Module,COMP-040,4

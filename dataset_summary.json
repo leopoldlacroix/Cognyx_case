@@ -1,0 +1,10 @@
+{
+  "variants": 5,
+  "canonical_components": 40,
+  "canonical_assemblies": 9,
+  "plm_bom_rows": 138,
+  "plm_assembly_rows": 45,
+  "erp_material_rows": 44,
+  "erp_supplier_rows": 6,
+  "engineering_notes": 71
+}

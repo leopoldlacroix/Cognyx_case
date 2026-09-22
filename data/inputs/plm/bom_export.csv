@@ -1,0 +1,139 @@
+plm_row_id,variant_ref,assembly_ref,assembly_description,component_ref,component_description,quantity,uom,supplier_name,line_status
+BOM-0001,REGIO-STD,HVAC-M01,HVAC module,CTRL-AIR-01,HVAC control unit,1,pcs,Siemens Mobility GmbH,Released
+BOM-0002,REGIO-STD,HVAC-M01,HVAC module,FAN-AIR01,Fan ventilation cabine,2,EA,Faiveley Transport SAS,Released
+BOM-0003,REGIO-STD,HVAC-M01,Module HVAC,CAPT-TEMP-01,Capteur température HVAC,2,unit,TE,Released
+BOM-0004,REGIO-STD,HVAC-M01,Climate control assembly,FILTER-HVAC-01,HVAC filter,1,units,Faiveley Transport SAS,Released
+BOM-0005,REGIO-STD,DOOR-M02,Door system control assembly,CTRL-DOOR-01,Door control unit 24V,1,pcs,Knorr-Bremse,Released
+BOM-0006,REGIO-STD,DOOR-M02,Door control module,DOOR-MOTOR-01,Door motor,2,EA,Knorr-Bremse,Released
+BOM-0007,REGIO-STD,DOOR-M02,Module contrôle portes,DPS-01,Capteur position porte,2,unit,TE,Released
+BOM-0008,REGIO-STD,BRAKE-M03,Brake control module,BRAKE-CTRL-01,Unité de contrôle frein,1,pcs,Knorr-Bremse,Released
+BOM-0009,REGIO-STD,BRAKE-M03,Brake control assembly,PRESS-SENS-BRAKE,Bremdrucksensor,4,EA,TE CONNECTIVITY,Released
+BOM-0010,REGIO-STD,BRAKE-M03,Brake control assembly,BRK-VLV-01,Brake valve,4,unit,Knorr-Bremse Rail Systems,Released
+BOM-0011,REGIO-STD,PIS-M04,Module affichage voyageurs,PIS-DISPLAY-15,Afficheur passagers 15 pouces,2,pcs,Thales Ground Transportation Systems,Released
+BOM-0012,REGIO-STD,PIS-M04,Passenger information display module,PIS-CU-01,PIS control unit,1,EA,Thales GTS,Released
+BOM-0013,REGIO-STD,PIS-M04,PIS display assembly,AMP-PAX-01,Passenger audio amplifier,1,unit,Thales Ground Transportation Systems,Released
+BOM-0014,REGIO-STD,PIS-M04,PIS display assembly,PIS-MOUNT-15,Display mount,2,units,SCHALTBAU GmbH,Released
+BOM-0015,REGIO-STD,APC-M05,AUX power module,APC-750-24,AUX power converter,1,pcs,SCHALTBAU GmbH,Released
+BOM-0016,REGIO-STD,APC-M05,Auxiliary power conversion module,CONV-FAN-01,Ventilateur convertisseur,2,EA,Faiveley Transport,Released
+BOM-0017,REGIO-STD,BAT-M06,Module surveillance batterie,BATT-MON-01,Battery monitoring unit,1,pcs,Siemens Mobility GmbH,Released
+BOM-0018,REGIO-STD,BAT-M06,Battery monitoring module,BAT-CURRENT-01,Battery current sensor,1,EA,TE Connectivity,Released
+BOM-0019,REGIO-STD,BAT-M06,Battery monitoring module,BTS-029,Battery temperature sensor,4,unit,TE CONNECTIVITY,Released
+BOM-0020,REGIO-STD,CAB-M07,Driver cab control assembly,CAB-CTRL-01,Driver cab controller,1,pcs,SIEMENS MOBILITY,Released
+BOM-0021,REGIO-STD,CAB-M07,Module contrôle cabine,CAB-DISP-01,Driver display,1,EA,Thales GTS,Released
+BOM-0022,REGIO-STD,PCOUNT-M08,Passenger counting assembly,PAX-COUNT-CAM,PAX counting camera,4,pcs,Thales GTS,Released
+BOM-0023,REGIO-STD,PCOUNT-M08,Passenger counting module,PASSCOUNT-CPU,Processeur comptage voyageurs,1,EA,Siemens Mobility GmbH,Released
+BOM-0024,REGIO-STD,PCOUNT-M08,Passenger counting module,PCOUNT-BRKT,Counting camera bracket,4,unit,Schaltbau GmbH,Released
+BOM-0025,REGIO-STD,LIGHT-M09,Module éclairage intérieur,LED-DRV-01,LED Treiber,6,pcs,Schaltbau GmbH,Released
+BOM-0026,REGIO-STD,LIGHT-M09,Interior lighting module,INTERIOR-LED-01,Interior LED,12,EA,SCHALTBAU GmbH,Released
+BOM-0027,REGIO-STD,LIGHT-M09,Interior lighting module,ELM-040,Module éclairage secours,4,unit,SCHALTBAU GmbH,Released
+BOM-0028,REGIO-COMFORT,HVAC-M02,Climate control assembly,CTRL-AIR01,HVAC controller 24V,1,pcs,Siemens,Released
+BOM-0029,REGIO-COMFORT,HVAC-M02,Climate control assembly,HVAC-FAN-01,Fan ventilation cabine,2,EA,Faiveley Transport,Released
+BOM-0030,REGIO-COMFORT,HVAC-M02,HVAC module,TEMP-SENS-01,Capteur température HVAC,2,unit,TE CONNECTIVITY,Released
+BOM-0031,REGIO-COMFORT,HVAC-M02,Climate control assembly,HVAC-FILTER-01,Air conditioning filter,one,units,Faiveley Transport,Released
+BOM-0032,REGIO-COMFORT,DOOR-M02,Door control module,DOOR-CTRL-01,Door control unit 24V,1,pcs,Knorr-Bremse Rail Systems,Released
+BOM-0033,REGIO-COMFORT,DOOR-M02,Door control module,DMTR-01,Motorisation porte,2,EA,Knorr Bremse,Released
+BOM-0034,REGIO-COMFORT,DOOR-M02,Door control module,DOOR-POS-01,Door pos. sensor,2,unit,TE CONNECTIVITY,Released
+BOM-0035,REGIO-COMFORT,BRAKE-M03,Brake control assembly,BCU-01,Bremssteuergerät,1,pcs,Knorr Bremse,Released
+BOM-0036,REGIO-COMFORT,BRAKE-M03,Brake control assembly,BPS-015,Brake pressure sensor,4,EA,TE Connectivity,Released
+BOM-0037,REGIO-COMFORT,BRAKE-M03,Brake control module,BRAKE-VALVE-01,Valve de frein,4,unit,Knorr-Bremse,Released
+BOM-0038,REGIO-COMFORT,PAX-INFO-M01,Passenger information display module,PAX-DISP-15,Passenger display 15 inch,2,pcs,Thales Ground Transportation Systems,Released
+BOM-0039,REGIO-COMFORT,PAX-INFO-M01,Module affichage voyageurs,CTRL-PIS-01,PIS control unit,1,EA,Thales Ground Transportation Systems,Released
+BOM-0040,REGIO-COMFORT,PAX-INFO-M01,Passenger information display module,PIS-AMP-01,Passenger audio amplifier,1,unit,Thales Ground Transportation Systems,Released
+BOM-0041,REGIO-COMFORT,PAX-INFO-M01,Module affichage voyageurs,DISPLAY-MOUNT-01,Passenger display bracket,2,units,Schaltbau GmbH,Released
+BOM-0042,REGIO-COMFORT,APC-M05,Module conversion puissance auxiliaire,POWER-CONV-01,AUX power converter,1,pcs,Schaltbau,Released
+BOM-0043,REGIO-COMFORT,APC-M05,Module conversion puissance auxiliaire,PWR-FAN-24,Cooling fan power converter,2,EA,Faiveley Transport SAS,Released
+BOM-0044,REGIO-COMFORT,BAT-M06,BMS monitoring sub-assembly,BAT-MON-UNIT,Battery monitoring unit,1,pcs,Siemens Mobility GmbH,Released
+BOM-0045,REGIO-COMFORT,BAT-M06,BMS monitoring sub-assembly,BCS-028,Battery current transducer,1,EA,TE Connectivity,Released
+BOM-0046,REGIO-COMFORT,BAT-M06,BMS monitoring sub-assembly,BATT-TEMP-SENS,Capteur température batterie,4,unit,TE,Released
+BOM-0047,REGIO-COMFORT,CAB-CTRL-M01,Module contrôle cabine,CAB-CU-01,Driver cab controller,1,pcs,SIEMENS MOBILITY,Released
+BOM-0048,REGIO-COMFORT,CAB-CTRL-M01,Cab control module,DDU-032,DDU,1,EA,Thales GTS,Released
+BOM-0049,REGIO-COMFORT,PASSCOUNT-MOD-01,Passenger counting module,PASSCOUNT-CAMERA,Passenger counting camera,4,pcs,Thales,Released
+BOM-0050,REGIO-COMFORT,PASSCOUNT-MOD-01,Passenger counting assembly,PCPU-035,Processeur comptage voyageurs,1,EA,Siemens,Released
+BOM-0051,REGIO-COMFORT,PASSCOUNT-MOD-01,Passenger counting assembly,PAX-COUNT-MOUNT,Counting camera bracket,4,unit,Schaltbau,Released
+BOM-0052,REGIO-COMFORT,LIGHT-M09,Interior lighting module,LIGHT-DRIVER-01,LED driver,6,pcs,Schaltbau,Released
+BOM-0053,REGIO-COMFORT,LIGHT-M09,Interior lighting module,LLED-039,Interior LED,12,EA,Schaltbau GmbH,Released
+BOM-0054,REGIO-COMFORT,LIGHT-M09,Interior lighting module,EMERG-LIGHT-01,Emergency light module,4,unit,Schaltbau,Released
+BOM-0055,REGIO-NORDIC,HVAC-N01,Climate control assembly,CTRL-HVAC-001,HVAC controller 24V,1,pcs,Siemens,Released
+BOM-0056,REGIO-NORDIC,HVAC-N01,Climate control assembly,FAN-AIR-ND,Nordic HVAC fan,2,EA,Faiveley Transport,Released
+BOM-0057,REGIO-NORDIC,HVAC-N01,Climate control assembly,TEMP-SENS-06,Nordic HVAC temperature sensor,2,unit,TE Connectivity,Released
+BOM-0058,REGIO-NORDIC,HVAC-N01,Climate control assembly,FILTER-HVAC-01,Filtre HVAC,1,units,Faiveley Transport SAS,Released
+BOM-0059,REGIO-NORDIC,DCTRL-MOD-01,Door control module,CTRL-DOOR-01,Door control unit 24V,1,pcs,Knorr Bremse,Released
+BOM-0060,REGIO-NORDIC,DCTRL-MOD-01,Door control module,DOOR-MOTOR-01,Door motor,2,EA,Knorr Bremse,Released
+BOM-0061,REGIO-NORDIC,DCTRL-MOD-01,Door system control assembly,DPS-01,Capteur position porte,2,unit,TE Connectivity,Released
+BOM-0062,REGIO-NORDIC,BRAKE-M03-N,Brake control assembly,BRAKE-CTRL-ND,Unité de contrôle frein nordique,1,pcs,Knorr Bremse,Released
+BOM-0063,REGIO-NORDIC,BRAKE-M03-N,Module de commande frein,PRESS-SENS-BRAKE,Capteur pression frein,4,EA,TE,Released
+BOM-0064,REGIO-NORDIC,BRAKE-M03-N,Module de commande frein,BRK-VLV-01,Brake valve,4,unit,Knorr-Bremse Rail Systems,Released
+BOM-0065,REGIO-NORDIC,PIS-M04-N,Passenger information display module,DISPLAY-15IN,"PAX display 15""",2,pcs,Thales,Released
+BOM-0066,REGIO-NORDIC,PIS-M04-N,Module affichage voyageurs,PIS-CU-01,Unité de contrôle information voyageurs,1,EA,Thales Ground Transportation Systems,Released
+BOM-0067,REGIO-NORDIC,PIS-M04-N,Passenger information display module,AMP-PAX-01,Passenger audio amplifier,1,unit,Thales,Released
+BOM-0068,REGIO-NORDIC,PIS-M04-N,Module affichage voyageurs,PIS-MOUNT-15,Passenger display bracket,2,units,Schaltbau GmbH,Released
+BOM-0069,REGIO-NORDIC,POWER-MOD-N,Auxiliary power conversion module,APC-750-24-ND,Nordic auxiliary power converter,1,pcs,SCHALTBAU GmbH,Released
+BOM-0070,REGIO-NORDIC,POWER-MOD-N,Auxiliary power conversion module,CONV-FAN-01,Ventilateur convertisseur,2,EA,Faiveley Transport,Released
+BOM-0071,REGIO-NORDIC,BAT-M06,BMS monitoring sub-assembly,BATT-MON-01,Battery monitoring unit,1,pcs,SIEMENS MOBILITY,Released
+BOM-0072,REGIO-NORDIC,BAT-M06,BMS monitoring sub-assembly,BAT-CURRENT-01,Battery current sensor,1,EA,TE Connectivity,Released
+BOM-0073,REGIO-NORDIC,BAT-M06,Battery monitoring module,BTS-029,Battery temp sensor,4,unit,TE Connectivity,Released
+BOM-0074,REGIO-NORDIC,CAB-CTRL-N01,Module contrôle cabine,CAB-CTRL-ND,Nordic cab control unit,1,pcs,Siemens,Released
+BOM-0075,REGIO-NORDIC,CAB-CTRL-N01,Cab control module,CAB-DISP-01,Afficheur conducteur,1,EA,Thales GTS,Released
+BOM-0076,REGIO-NORDIC,PASSCOUNT-MOD-N,Passenger counting module,PAX-COUNT-CAM,Caméra comptage voyageurs,4,pcs,Thales,Released
+BOM-0077,REGIO-NORDIC,PASSCOUNT-MOD-N,Module comptage voyageurs,PASSCOUNT-CPU,Processeur comptage voyageurs,1,EA,Siemens,Released
+BOM-0078,REGIO-NORDIC,PASSCOUNT-MOD-N,Module comptage voyageurs,PCOUNT-BRKT,Support caméra comptage,4,unit,SCHALTBAU GmbH,Released
+BOM-0079,REGIO-NORDIC,INTERIOR-LIGHT-N01,Cabin lighting assembly,LED-DRV-ND,Pilote LED nordique,6,pcs,Schaltbau GmbH,Released
+BOM-0080,REGIO-NORDIC,INTERIOR-LIGHT-N01,Cabin lighting assembly,INTERIOR-LED-01,Interior LED,12,EA,Schaltbau GmbH,Released
+BOM-0081,REGIO-NORDIC,INTERIOR-LIGHT-N01,Interior lighting module,ELM-040,Module éclairage secours,4,unit,Schaltbau,Released
+BOM-0082,REGIO-HC,HVAC-HC01,HVAC module,CTRL-AIR-O1,HVAC controller 24V,1,pcs,Siemens,Released
+BOM-0083,REGIO-HC,HVAC-HC01,Climate control assembly,FAN-AIR-HC,HVAC fan HC,2,EA,Faiveley Transport SAS,Released
+BOM-0084,REGIO-HC,HVAC-HC01,Module HVAC,TEMP-SENSOR-01,Capteur température HVAC,2,unit,TE CONNECTIVITY,Released
+BOM-0085,REGIO-HC,HVAC-HC01,Climate control assembly,FILT-AIR-01,Filtre HVAC,1,units,Faiveley,Released
+BOM-0086,REGIO-HC,DOOR-CTRL-HD,Door system control assembly,DCTRL-001,Contrôleur de porte,1,pcs,Knorr-Bremse Rail Systems,Released
+BOM-0087,REGIO-HC,DOOR-CTRL-HD,Door system control assembly,MOTOR-DOOR-01,Motorisation porte,2,EA,Knorr-Bremse,Released
+BOM-0088,REGIO-HC,DOOR-CTRL-HD,Door control module,POS-SENS-DOOR,Capteur position porte,2,unit,TE Connectivity,Released
+BOM-0089,REGIO-HC,BRAKE-CTRL-M01,Module de commande frein,BrakeCtrl01,Bremssteuergerät,1,pcs,Knorr-Bremse,Released
+BOM-0090,REGIO-HC,BRAKE-CTRL-M01,Brake control module,BRAKE-P-SENS,Brake pressure sensor,4,EA,TE,Released
+BOM-0091,REGIO-HC,BRAKE-CTRL-M01,Module de commande frein,BVAL-01,Bremsventil,4,unit,Knorr-Bremse,Released
+BOM-0092,REGIO-HC,DISPLAY-MOD-HC,PIS display assembly,PIS-DISPLAY-15,"PAX display 15""",2,pcs,Thales,Released
+BOM-0093,REGIO-HC,DISPLAY-MOD-HC,PIS display assembly,PIS-CTRL-01,PIS control unit,1,EA,Thales GTS,Released
+BOM-0094,REGIO-HC,DISPLAY-MOD-HC,PIS display assembly,AUDIO-AMP-PIS,PAX audio amp,1,unit,Thales Ground Transportation Systems,Released
+BOM-0095,REGIO-HC,DISPLAY-MOD-HC,Passenger information display module,PAX-DISP-BRKT,Support afficheur passagers,2,units,SCHALTBAU GmbH,Released
+BOM-0096,REGIO-HC,AUX-CONV-M01,Module conversion puissance auxiliaire,AUX-CONV-750V,AUX power converter,1,pcs,Schaltbau GmbH,Released
+BOM-0097,REGIO-HC,AUX-CONV-M01,Module conversion puissance auxiliaire,POWER-FAN-01,Power converter cooling fan,2,EA,Faiveley Transport,Released
+BOM-0098,REGIO-HC,BAT-MON-M01,BMS monitoring sub-assembly,BMU-001,Battery monitoring unit,1,pcs,Siemens Mobility GmbH,Released
+BOM-0099,REGIO-HC,BAT-MON-M01,Module surveillance batterie,BATT-CURR-SENS,Capteur courant batterie,1,EA,TE,Released
+BOM-0100,REGIO-HC,BAT-MON-M01,Module surveillance batterie,BAT-TEMP-01,Battery temperature sensor,4,unit,TE Connectivity,Released
+BOM-0101,REGIO-HC,CAB-CTRL-M01,Cab control module,DRIVER-CAB-CU,Driver cab controller,1,pcs,Siemens Mobility GmbH,Released
+BOM-0102,REGIO-HC,CAB-CTRL-M01,Cab control module,DRIVER-DISPLAY,Driver display,1,EA,Thales Ground Transportation Systems,Released
+BOM-0103,REGIO-HC,PAX-COUNT-MOD-HC,Passenger counting module,PCAM-033,PAX counting camera,4,pcs,Thales GTS,Released
+BOM-0104,REGIO-HC,PAX-COUNT-MOD-HC,Passenger counting module,PAX-COUNT-PROC,Processeur comptage voyageurs,1,EA,Siemens,Released
+BOM-0105,REGIO-HC,PAX-COUNT-MOD-HC,Passenger counting module,COUNTING-BRKT,Support caméra comptage,4,unit,SCHALTBAU GmbH,Released
+BOM-0106,REGIO-HC,LIGHT-M09,Cabin lighting assembly,LDR-037,Pilote LED,6,pcs,Schaltbau GmbH,Released
+BOM-0107,REGIO-HC,LIGHT-M09,Cabin lighting assembly,LED-MOD-01,Module éclairage LED intérieur,12,EA,Schaltbau GmbH,Released
+BOM-0108,REGIO-HC,LIGHT-M09,Cabin lighting assembly,EMERGENCY-LED-01,Emergency LED,4,unit,Schaltbau,Released
+BOM-0109,REGIO-EXPORT,HVAC-EXP01,Climate control assembly,CTRL-AIR-01,HVAC control unit,1,pcs,SIEMENS MOBILITY,Released
+BOM-0110,REGIO-EXPORT,HVAC-EXP01,Module HVAC,FAN-AIR01,Ventilateur HVAC,2,EA,Faiveley,Released
+BOM-0111,REGIO-EXPORT,HVAC-EXP01,Climate control assembly,CAPT-TEMP-01,Capteur température HVAC,2,unit,TE Connectivity,Released
+BOM-0112,REGIO-EXPORT,HVAC-EXP01,Module HVAC,FILTER-HVAC-01,Air conditioning filter,1,units,Faiveley,Released
+BOM-0113,REGIO-EXPORT,PORTES-EXP02,Door control module,CTRL-DOOR-EXP,Contrôleur de porte 48V,1,pcs,Knorr-Bremse Rail Systems,Released
+BOM-0114,REGIO-EXPORT,PORTES-EXP02,Door control module,DOOR-MOTOR-01,Door actuator,2,EA,Knorr Bremse,Released
+BOM-0115,REGIO-EXPORT,PORTES-EXP02,Module contrôle portes,DPS-01,Door pos. sensor,2,unit,TE CONNECTIVITY,Released
+BOM-0116,REGIO-EXPORT,FREIN-EXP03,Brake control assembly,BRAKE-CTRL-01,Bremssteuergerät,1,pcs,Knorr Bremse,Released
+BOM-0117,REGIO-EXPORT,FREIN-EXP03,Module de commande frein,PRESS-SENS-BRAKE,Brake pressure sensor,4,EA,TE Connectivity,Released
+BOM-0118,REGIO-EXPORT,FREIN-EXP03,Brake control module,BRK-VLV-01,Valve de frein,4,unit,Knorr Bremse,Released
+BOM-0119,REGIO-EXPORT,PIS-M04-E,Passenger information display module,PAX-DISP-15,Passenger display 15 inch,2,pcs,Thales GTS,Released
+BOM-0120,REGIO-EXPORT,PIS-M04-E,Passenger information display module,PIS-CU-01,PAX information controller,1,EA,Thales GTS,Released
+BOM-0121,REGIO-EXPORT,PIS-M04-E,PIS display assembly,AMP-PAX-01,PAX audio amp,1,unit,Thales GTS,Released
+BOM-0122,REGIO-EXPORT,PIS-M04-E,PIS display assembly,PIS-MOUNT-15,Display mount,2,pcs,SCHALTBAU GmbH,Released
+BOM-0123,REGIO-EXPORT,AUX-CONV-EXP,Auxiliary power conversion module,APC-750-24,Auxiliary power converter 750V/24V,1,pcs,Schaltbau,Released
+BOM-0124,REGIO-EXPORT,AUX-CONV-EXP,AUX power module,CONV-FAN-01,Cooling fan power converter,2,EA,Faiveley,Released
+BOM-0125,REGIO-EXPORT,BATT-MOD-EXP,BMS monitoring sub-assembly,BATT-MON-EXP,Export battery monitoring unit 48V,1,pcs,SIEMENS MOBILITY,Released
+BOM-0126,REGIO-EXPORT,BATT-MOD-EXP,Module surveillance batterie,BAT-CURRENT-01,Battery current transducer,1,EA,TE Connectivity,Released
+BOM-0127,REGIO-EXPORT,BATT-MOD-EXP,Module surveillance batterie,BTS-029,Battery temperature sensor,4,unit,TE Connectivity,Released
+BOM-0128,REGIO-EXPORT,DRIVER-MOD-EXP,Module contrôle cabine,CAB-CTRL-01,Unité contrôle cabine,1,pcs,Siemens,Released
+BOM-0129,REGIO-EXPORT,DRIVER-MOD-EXP,Cab control module,CAB-DISP-01,Driver display,1,EA,Thales Ground Transportation Systems,Released
+BOM-0130,REGIO-EXPORT,PAX-COUNT-MOD-E,Module comptage voyageurs,PAX-COUNT-CAM,PAX counting camera,4,pcs,Thales,Released
+BOM-0131,REGIO-EXPORT,PAX-COUNT-MOD-E,Passenger counting assembly,PASSCOUNT-CPU,PAX counting CPU,1,EA,SIEMENS MOBILITY,Released
+BOM-0132,REGIO-EXPORT,PAX-COUNT-MOD-E,Passenger counting module,PCOUNT-BRKT,Counting camera bracket,4,unit,Schaltbau,Released
+BOM-0133,REGIO-EXPORT,ECL-EXP09,Module éclairage intérieur,LED-DRV-01,LED driver,6,pcs,Schaltbau,Released
+BOM-0134,REGIO-EXPORT,ECL-EXP09,Cabin lighting assembly,INTERIOR-LED-01,Interior LED light module,12,EA,Schaltbau,Released
+BOM-0135,REGIO-EXPORT,ECL-EXP09,Cabin lighting assembly,ELM-040,Module éclairage secours,4,unit,SCHALTBAU GmbH,Released
+BOM-0301,REGIO-STD,HVAC-M01,HVAC module,CTRL-AIR01,HVAC controller 24V,1,EA,Siemens,Released
+BOM-0302,REGIO-COMFORT,PAX-INFO-M01,Module affichage voyageurs,PAX-DISP-15,Passenger display 15 inch,2,units,Thales GTS,Released
+BOM-0303,REGIO-NORDIC,HVAC-N01,Climate control assembly,CTRL-AIR-01,Contrôleur HVAC 24 V,1,pcs,SIEMENS MOBILITY,Released
