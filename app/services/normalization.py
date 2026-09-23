@@ -216,7 +216,7 @@ def normalize_engineering_notes(conn: sqlite3.Connection) -> Dict[str, Any]:
     For each engineering_note row:
     - Detect language from note_text
     - Populate language_normalized
-    - Normalize text (whitespace collapse; punctuation trim in a later pass)
+    - Normalize text (whitespace collapse, leading/trailing punctuation trim)
     - Populate note_text_normalized
     - Preserve original note_text unchanged
     - Soft-warn when language is undetectable (empty/blank note text → default EN)
@@ -252,8 +252,11 @@ def normalize_engineering_notes(conn: sqlite3.Connection) -> Dict[str, Any]:
         )
         stats['languages'][lang] = stats['languages'].get(lang, 0) + 1
 
-        # Normalize text: whitespace collapse (raw note_text left unchanged)
+        # Normalize text: whitespace collapse + light leading/trailing punct trim
+        # (do not use normalize_punctuation — that rewrites identifiers/underscores)
         normalized_text = normalize_whitespace(text)
+        if normalized_text:
+            normalized_text = normalized_text.strip('.,;:!?-_')
         conn.execute(
             'UPDATE engineering_note SET note_text_normalized = ? WHERE id = ?',
             (normalized_text, note_id),

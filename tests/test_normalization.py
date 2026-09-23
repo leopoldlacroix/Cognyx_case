@@ -383,3 +383,53 @@ class TestEngineeringNoteLanguageDetection:
             "WHERE source_table = 'engineering_note' AND warning_type = 'undetectable_language'"
         ).fetchall()
         assert len(warnings) == 1
+
+
+class TestEngineeringNoteTextNormalization:
+    """Tests for engineering note text normalization (NORM-06 / Task 2.2.2)."""
+
+    def test_engineering_note_text_normalization(self, db_connection):
+        """Verify note text is normalized (whitespace collapse, punct trim); raw preserved."""
+        from app.services.normalization import (
+            normalize_whitespace,
+            normalize_engineering_notes,
+        )
+        from app.db.connection import get_connection
+        from app.db.schema import create_schema
+
+        raw = "  This   is   a   test  note  "
+        expected = "This is a test note"
+        assert normalize_whitespace(raw) == expected
+
+        conn = get_connection(':memory:')
+        conn.execute('PRAGMA foreign_keys = ON')
+        create_schema(conn)
+
+        conn.execute(
+            'INSERT INTO source_file (source_system, file_name, file_hash, ingested_at) '
+            'VALUES (?, ?, ?, ?)',
+            ('ENGINEERING', 'technical_notes.csv', 'testhash', '2026-01-01T00:00:00Z'),
+        )
+
+        messy = "  ..Note   with   spaces..  "
+        conn.execute(
+            'INSERT INTO engineering_note '
+            '(source_file_id, source_row, object_reference_raw, object_type, '
+            'language, author, date, note_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (1, 1, 'CTRL-TEST', 'component', 'en', 'Test', '2026-01-01', messy),
+        )
+        conn.commit()
+
+        normalize_engineering_notes(conn)
+
+        row = conn.execute(
+            'SELECT note_text, note_text_normalized FROM engineering_note WHERE id = 1'
+        ).fetchone()
+        assert row['note_text'] == messy, 'raw note_text must be preserved'
+        assert row['note_text_normalized'] == 'Note with spaces'
+        # Deterministic
+        normalize_engineering_notes(conn)
+        row2 = conn.execute(
+            'SELECT note_text_normalized FROM engineering_note WHERE id = 1'
+        ).fetchone()
+        assert row2['note_text_normalized'] == row['note_text_normalized']
