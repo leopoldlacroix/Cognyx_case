@@ -1,0 +1,310 @@
+"""
+Ingestion service for Cognyx BOM Reuse Explorer.
+
+Handles CSV file ingestion with full provenance tracking.
+"""
+import csv
+import hashlib
+import json
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from app.db.connection import get_connection
+
+
+def compute_file_hash(file_path: Path) -> str:
+    """Compute SHA-256 hash of file contents."""
+    hasher = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def register_source_file(
+    conn: sqlite3.Connection,
+    source_system: str,
+    file_name: str,
+    file_hash: Optional[str],
+    ingested_at: datetime
+) -> int:
+    """Register a source file and return its ID."""
+    cursor = conn.execute("""
+        INSERT OR IGNORE INTO source_file (source_system, file_name, file_hash, ingested_at)
+        VALUES (?, ?, ?, ?)
+    """, (source_system, file_name, file_hash, ingested_at.isoformat()))
+    
+    if cursor.rowcount > 0:
+        return cursor.lastrowid
+    
+    # Already exists - fetch existing ID
+    row = conn.execute("""
+        SELECT id FROM source_file WHERE source_system = ? AND file_hash = ?
+    """, (source_system, file_hash)).fetchone()
+    return row['id']
+
+
+def quarantine_row(
+    conn: sqlite3.Connection,
+    source_file_id: int,
+    source_row: int,
+    row: Dict[str, Any],
+    reason: str
+) -> None:
+    """Insert a row into the quarantine table."""
+    conn.execute("""
+        INSERT INTO quarantine (source_file_id, source_row, raw_data, rejection_reason, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        source_file_id,
+        source_row,
+        json.dumps(row, ensure_ascii=False),
+        reason,
+        datetime.now(timezone.utc).isoformat()
+    ))
+    conn.commit()
+
+
+def ingest_csv_file(
+    conn: sqlite3.Connection,
+    file_path: Path,
+    source_system: str,
+    table_name: str,
+    column_map: Dict[str, str],
+    expected_columns: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """
+    Ingest a CSV file into the specified table.
+    
+    Args:
+        conn: Database connection
+        file_path: Path to CSV file
+        source_system: Source system identifier (PLM, ERP, ENGINEERING)
+        table_name: Target database table name
+        column_map: Mapping from CSV column names to database column names
+        expected_columns: Optional list of expected CSV columns for validation
+    
+    Returns:
+        Dict with row_count, quarantined_count, warnings_count, source_file_id
+    """
+    file_hash = compute_file_hash(file_path)
+    ingested_at = datetime.now(timezone.utc)
+    
+    # Register source file
+    source_file_id = register_source_file(conn, source_system, file_path.name, file_hash, ingested_at)
+    
+    stats = {
+        'row_count': 0,
+        'quarantined_count': 0,
+        'warnings_count': 0,
+        'source_file_id': source_file_id
+    }
+    
+    with open(file_path, 'r', encoding='utf-8', newline='') as f:
+        reader = csv.DictReader(f)
+        
+        # Check for existing source file (idempotency)
+        existing_count = conn.execute(
+            'SELECT COUNT(*) as c FROM plm_bom_line WHERE source_file_id = ?',
+            (source_file_id,)
+        ).fetchone()['c']
+        
+        if existing_count > 0:
+            # File already ingested - return existing stats without re-processing
+            stats['row_count'] = existing_count
+            return stats
+        
+        # Validate required columns
+        if expected_columns:
+            missing = set(expected_columns) - set(reader.fieldnames or [])
+            if missing:
+                quarantine_row(conn, source_file_id, 0, {'columns': reader.fieldnames}, 
+                              f"Missing required columns: {missing}")
+                stats['quarantined_count'] += 1
+                return stats
+        
+        for source_row, row in enumerate(reader, start=2):  # Header is row 1
+            stats['row_count'] += 1
+            
+            # Build insert values
+            insert_values = {'source_file_id': source_file_id, 'source_row': source_row}
+            
+            for csv_col, db_col in column_map.items():
+                value = row.get(csv_col)
+                # Store NULL for missing optional fields, not empty string
+                if value is None or str(value).strip() == '':
+                    insert_values[db_col] = None
+                else:
+                    insert_values[db_col] = value
+            
+            # Insert into target table
+            columns = list(insert_values.keys())
+            values = list(insert_values.values())
+            
+            conn.execute(f"""
+                INSERT INTO {table_name} ({', '.join(columns)})
+                VALUES ({', '.join(['?' for _ in columns])})
+            """, values)
+        
+        conn.commit()
+    
+    return stats
+
+
+def ingest_all_files(conn: sqlite3.Connection, base_path: Path) -> Dict[str, Any]:
+    """
+    Ingest all 6 CSV files from the data inputs directory.
+    
+    Returns a summary report dict.
+    """
+    files_config = [
+        {'path': 'plm/bom_export.csv', 'system': 'PLM', 'table': 'plm_bom_line',
+         'column_map': {
+             'variant_ref': 'variant_ref_raw',
+             'assembly_ref': 'assembly_ref_raw',
+             'component_ref': 'component_ref_raw',
+             'quantity': 'quantity_raw',
+             'uom': 'uom_raw',
+             'supplier_name': 'supplier_raw',
+         }},
+        {'path': 'plm/assembly_master.csv', 'system': 'PLM', 'table': 'plm_assembly',
+         'column_map': {
+             'plm_assembly_ref': 'assembly_ref_raw',
+             'assembly_description': 'assembly_description_raw',
+             'variant_ref': 'variant_ref_raw',
+             'revision': 'revision_raw',
+             'lifecycle': 'lifecycle_raw',
+         }},
+        {'path': 'plm/variant_configuration.csv', 'system': 'PLM', 'table': 'plm_variant',
+         'column_map': {
+             'variant_ref': 'variant_ref_raw',
+             'variant_name': 'variant_name_raw',
+             'train_family': 'train_family_raw',
+             'market': 'market_raw',
+             'climate_class': 'climate_class_raw',
+             'capacity_class': 'capacity_class_raw',
+             'voltage_system': 'voltage_system_raw',
+             'notes': 'notes_raw',
+         }},
+        {'path': 'erp/material_master.csv', 'system': 'ERP', 'table': 'erp_material',
+         'column_map': {
+             'material_id': 'material_id_raw',
+             'material_description': 'description_raw',
+             'material_type': 'material_type_raw',
+             'base_unit': 'base_unit_raw',
+             'supplier_id': 'supplier_id_raw',
+             'category': 'category_raw',
+             'status': 'status_raw',
+             'standard_cost_eur': 'cost_raw',
+         }},
+        {'path': 'erp/supplier_master.csv', 'system': 'ERP', 'table': 'erp_supplier',
+         'column_map': {
+             'supplier_id': 'supplier_id_raw',
+             'supplier_name': 'supplier_name_raw',
+             'country': 'country_raw',
+         }},
+        {'path': 'engineering/technical_notes.csv', 'system': 'ENGINEERING', 'table': 'engineering_note',
+         'column_map': {
+             'object_reference': 'object_reference_raw',
+             'object_type': 'object_type',
+             'language': 'language',
+             'author': 'author',
+             'date': 'date',
+             'note_text': 'note_text',
+         }},
+    ]
+    
+    summary = {
+        'files': [],
+        'total_rows': 0,
+        'total_quarantined': 0,
+        'total_warnings': 0
+    }
+    
+    for config in files_config:
+        file_path = base_path / config['path']
+        if not file_path.exists():
+            continue
+        
+        stats = ingest_csv_file(
+            conn,
+            file_path,
+            config['system'],
+            config['table'],
+            config['column_map']
+        )
+        
+        summary['files'].append({
+            'file_name': file_path.name,
+            'source_system': config['system'],
+            'table': config['table'],
+            'row_count': stats['row_count'],
+            'quarantined_count': stats['quarantined_count'],
+            'warnings_count': stats['warnings_count'],
+            'source_file_id': stats['source_file_id']
+        })
+        
+        summary['total_rows'] += stats['row_count']
+        summary['total_quarantined'] += stats['quarantined_count']
+        summary['total_warnings'] += stats['warnings_count']
+    
+    return summary
+
+
+def get_ingestion_status(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
+    """Get ingestion status for all source files."""
+    rows = conn.execute("""
+        SELECT sf.id, sf.source_system, sf.file_name, sf.file_hash, sf.ingested_at,
+               COUNT(DISTINCT plm_bom_line.id) as bom_lines,
+               COUNT(DISTINCT plm_assembly.id) as assemblies,
+               COUNT(DISTINCT plm_variant.id) as variants,
+               COUNT(DISTINCT erp_material.id) as materials,
+               COUNT(DISTINCT erp_supplier.id) as suppliers,
+               COUNT(DISTINCT engineering_note.id) as notes
+        FROM source_file sf
+        LEFT JOIN plm_bom_line ON plm_bom_line.source_file_id = sf.id
+        LEFT JOIN plm_assembly ON plm_assembly.source_file_id = sf.id
+        LEFT JOIN plm_variant ON plm_variant.source_file_id = sf.id
+        LEFT JOIN erp_material ON erp_material.source_file_id = sf.id
+        LEFT JOIN erp_supplier ON erp_supplier.source_file_id = sf.id
+        LEFT JOIN engineering_note ON engineering_note.source_file_id = sf.id
+        GROUP BY sf.id
+        ORDER BY sf.ingested_at
+    """).fetchall()
+    
+    return [dict(r) for r in rows]
+
+
+def get_quarantine_report(conn: sqlite3.Connection, source_file_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    """Return quarantine records with file provenance."""
+    if source_file_id:
+        rows = conn.execute("""
+            SELECT q.id, q.source_file_id, q.source_row, q.rejection_reason,
+                   q.created_at, sf.file_name, sf.source_system
+            FROM quarantine q
+            JOIN source_file sf ON q.source_file_id = sf.id
+            WHERE q.source_file_id = ?
+            ORDER BY q.source_row
+        """, (source_file_id,)).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT q.id, q.source_file_id, q.source_row, q.rejection_reason,
+                   q.created_at, sf.file_name, sf.source_system
+            FROM quarantine q
+            JOIN source_file sf ON q.source_file_id = sf.id
+            ORDER BY sf.file_name, q.source_row
+        """).fetchall()
+    
+    return [dict(r) for r in rows]
+
+
+def get_quarantine_count(conn: sqlite3.Connection, source_file_id: Optional[int] = None) -> int:
+    """Return count of quarantined rows."""
+    if source_file_id:
+        return conn.execute(
+            'SELECT COUNT(*) as c FROM quarantine WHERE source_file_id = ?',
+            (source_file_id,)
+        ).fetchone()['c']
+    return conn.execute('SELECT COUNT(*) as c FROM quarantine').fetchone()['c']

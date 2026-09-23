@@ -45,6 +45,17 @@
 - **Scenario validation** — Verify all 10 scenarios A–J are demonstrable end-to-end
 - **Demo preparation** — 1 email + 1 in-person meeting (1h)
 
+## Phase 1 Plans — READY
+
+All 5 PLAN.md files created in `.planning/phases/01-data-foundation-ingest-normalize/`:
+- PLAN-1.1.md — Ingest All 6 CSV Source Files (INGEST-01)
+- PLAN-1.2.md — Hard Validation Quarantine (INGEST-02)
+- PLAN-1.3.md — Soft Validation Warnings (INGEST-03)
+- PLAN-1.4.md — Normalize PLM BOM Lines (NORM-01)
+- PLAN-1.5.md — Apply UOM/Supplier/Reference Aliases (NORM-02, NORM-03, NORM-04, SCEN-C)
+
+**Wave 1:** All 5 plans (sequential execution: 1.1 → 1.2 → 1.3 → 1.4 → 1.5)
+
 ---
 
 ## Current Phase: None
