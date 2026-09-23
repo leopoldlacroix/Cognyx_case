@@ -307,6 +307,30 @@ def create_schema(conn: sqlite3.Connection) -> None:
     """)
 
     # ============================================================
+    # SOURCE ASSEMBLY VARIANT JUNCTION (variant linkage only here)
+    # ============================================================
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS source_assembly_variant (
+            id INTEGER PRIMARY KEY,
+            source_assembly_id INTEGER NOT NULL,
+            variant_ref_normalized TEXT NOT NULL,
+            created_at DATETIME NOT NULL,
+            FOREIGN KEY (source_assembly_id) REFERENCES source_assembly(id),
+            UNIQUE(source_assembly_id, variant_ref_normalized)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_source_assembly_variant_assembly
+        ON source_assembly_variant(source_assembly_id)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_source_assembly_variant_reference
+        ON source_assembly_variant(variant_ref_normalized)
+    """)
+
+    # ============================================================
     # SOURCE SUPPLIER TABLE
     # ============================================================
     cursor.execute("""
