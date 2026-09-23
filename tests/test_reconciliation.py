@@ -873,3 +873,124 @@ def test_run_entity_resolution_idempotent_records(conn):
         ).fetchone()["c"]
         == 4
     )
+
+
+# ---------------------------------------------------------------------------
+# Task 2.5.4 — full reconciliation orchestrator
+# ---------------------------------------------------------------------------
+
+
+def test_run_full_reconciliation_pipeline(conn):
+    from app.services.reconciliation import run_full_reconciliation
+
+    # Identity cluster
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-AIR-01",
+        normalized_reference="CTRL-AIR-01",
+    )
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-AIR01",
+        normalized_reference="CTRL-AIR-01",
+    )
+    # Functional similarity pair
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="STANDARD-DOOR-CTRL",
+        normalized_reference="STANDARD-DOOR-CTRL",
+    )
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="EXPORT-DOOR-CTRL",
+        normalized_reference="EXPORT-DOOR-CTRL",
+    )
+    # Supplier identity
+    _insert_source_supplier(
+        conn,
+        source_system="PLM",
+        source_reference="SIEMENS",
+        normalized_reference="SIEMENS",
+    )
+    _insert_source_supplier(
+        conn,
+        source_system="ERP",
+        source_reference="SUP-001",
+        normalized_reference="SIEMENS MOBILITY",
+    )
+    # Variant-specific Nordic fixture
+    _seed_nordic_fixture(conn)
+
+    summary = run_full_reconciliation(conn)
+
+    assert summary["run_id"] is not None
+    assert summary["component_identity"] >= 2
+    assert summary["supplier_identity"] >= 2
+    assert summary["functional_similarity"] >= 1
+    assert summary["variant_specific"] >= 1
+    assert summary["by_relationship"].get("identity", 0) >= 4
+    assert summary["by_relationship"].get("functional_similarity", 0) >= 2
+    assert summary["by_relationship"].get("variant_specific", 0) >= 1
+    assert summary["by_status"].get("PENDING", 0) == summary["total_records"]
+    assert summary["total_records"] > 0
+
+    run = conn.execute(
+        "SELECT * FROM reconciliation_run WHERE id = ?",
+        (summary["run_id"],),
+    ).fetchone()
+    assert run["entity_type"] == "full"
+    assert run["status"] == "COMPLETED"
+    assert run["completed_at"] is not None
+
+
+def test_run_full_reconciliation_idempotent(conn):
+    from app.services.reconciliation import run_full_reconciliation
+
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="STANDARD-DOOR-CTRL",
+        normalized_reference="STANDARD-DOOR-CTRL",
+    )
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="EXPORT-DOOR-CTRL",
+        normalized_reference="EXPORT-DOOR-CTRL",
+    )
+    _seed_nordic_fixture(conn)
+
+    first = run_full_reconciliation(conn)
+    component_count = conn.execute(
+        "SELECT COUNT(*) AS c FROM component_reconciliation"
+    ).fetchone()["c"]
+    supplier_count = conn.execute(
+        "SELECT COUNT(*) AS c FROM supplier_reconciliation"
+    ).fetchone()["c"]
+
+    second = run_full_reconciliation(conn)
+
+    assert first["total_records"] == second["total_records"]
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM component_reconciliation"
+        ).fetchone()["c"]
+        == component_count
+    )
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM supplier_reconciliation"
+        ).fetchone()["c"]
+        == supplier_count
+    )
+    # Two full runs → 2 reconciliation_run rows; detector rows not duplicated
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM reconciliation_run"
+        ).fetchone()["c"]
+        == 2
+    )

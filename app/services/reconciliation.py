@@ -715,6 +715,96 @@ def run_entity_resolution(
     }
 
 
+def _count_by_relationship_and_status(conn: sqlite3.Connection) -> Dict[str, Any]:
+    """Aggregate reconciliation rows by evidence.relationship and status."""
+    by_relationship: Dict[str, int] = {}
+    by_status: Dict[str, int] = {}
+
+    for table in (
+        "component_reconciliation",
+        "supplier_reconciliation",
+        "assembly_reconciliation",
+    ):
+        rows = conn.execute(
+            f"SELECT status, evidence_json FROM {table}"
+        ).fetchall()
+        for row in rows:
+            status = row["status"] or "UNKNOWN"
+            by_status[status] = by_status.get(status, 0) + 1
+            rel = "unknown"
+            if row["evidence_json"]:
+                try:
+                    evidence = json.loads(row["evidence_json"])
+                    rel = evidence.get("relationship", "unknown")
+                except json.JSONDecodeError:
+                    rel = "unknown"
+            by_relationship[rel] = by_relationship.get(rel, 0) + 1
+
+    return {"by_relationship": by_relationship, "by_status": by_status}
+
+
+def run_full_reconciliation(
+    conn: sqlite3.Connection,
+    config: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    """Run complete reconciliation pipeline.
+
+    Order: component identity → supplier identity → functional similarity →
+    variant-specific. Creates one reconciliation_run for the batch.
+    Idempotent: a second call does not duplicate detector rows.
+    Returns counts by relationship type and status.
+    """
+    if config is None:
+        config = load_normalization_config()
+
+    run_id = _start_reconciliation_run(conn, "full")
+
+    component_matches = detect_component_identities(
+        conn, config=config, reconciliation_run_id=run_id
+    )
+    supplier_matches = detect_supplier_identities(
+        conn, config=config, reconciliation_run_id=run_id
+    )
+    similarity_candidates = detect_functional_similarity(
+        conn, config=config, reconciliation_run_id=run_id
+    )
+    variant_records = detect_variant_specific_differences(
+        conn, reconciliation_run_id=run_id
+    )
+
+    counts = _count_by_relationship_and_status(conn)
+    items_processed = (
+        len(component_matches)
+        + len(supplier_matches)
+        + len(similarity_candidates)
+        + len(variant_records)
+    )
+    items_needing_review = (
+        len(component_matches)
+        + len(supplier_matches)
+        + len(similarity_candidates)
+    )
+
+    _complete_reconciliation_run(
+        conn,
+        run_id,
+        items_processed=items_processed,
+        items_assessed=items_processed,
+        items_needing_review=items_needing_review,
+    )
+
+    return {
+        "run_id": run_id,
+        "component_identity": len(component_matches),
+        "supplier_identity": len(supplier_matches),
+        "functional_similarity": len(similarity_candidates),
+        "variant_specific": len(variant_records),
+        "by_relationship": counts["by_relationship"],
+        "by_status": counts["by_status"],
+        "total_records": sum(counts["by_status"].values()),
+    }
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """Thin entry point: python -m app.services.reconciliation [--db PATH]."""
     import argparse
@@ -723,16 +813,32 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     parser = argparse.ArgumentParser(description="Run entity resolution")
     parser.add_argument("--db", default="cognyx.db", help="Database path")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Run full reconciliation (identity + similarity + variant-specific)",
+    )
     args = parser.parse_args(argv)
 
     init_database(args.db)
     conn = get_connection(args.db)
-    summary = run_entity_resolution(conn)
-    print(
-        f"components_matched={summary['components_matched']} "
-        f"suppliers_matched={summary['suppliers_matched']} "
-        f"total_records={summary['total_records']}"
-    )
+    if args.full:
+        summary = run_full_reconciliation(conn)
+        print(
+            f"run_id={summary['run_id']} "
+            f"identity_c={summary['component_identity']} "
+            f"identity_s={summary['supplier_identity']} "
+            f"similarity={summary['functional_similarity']} "
+            f"variant_specific={summary['variant_specific']} "
+            f"total_records={summary['total_records']}"
+        )
+    else:
+        summary = run_entity_resolution(conn)
+        print(
+            f"components_matched={summary['components_matched']} "
+            f"suppliers_matched={summary['suppliers_matched']} "
+            f"total_records={summary['total_records']}"
+        )
     conn.close()
     return 0
 
