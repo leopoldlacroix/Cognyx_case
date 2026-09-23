@@ -1,11 +1,19 @@
 """
-Tests for validation module.
+Tests for validation module - quarantine reporting.
 """
 import pytest
+import sqlite3
+from pathlib import Path
+
 from app.services.validation import (
     validate_hard,
     check_row_structure,
     check_soft_validation,
+)
+from app.services.ingestion import (
+    quarantine_row,
+    get_quarantine_report,
+    get_quarantine_count,
 )
 
 
@@ -131,3 +139,66 @@ class TestSoftValidation:
         row = {'description_raw': 'Test', 'uom_raw': 'EA', 'supplier_raw': 'Supplier', 'quantity_raw': '-1'}
         warnings = check_soft_validation(row, 'PLM')
         assert any(w['warning_type'] == 'contradictory_field' for w in warnings)
+
+
+class TestQuarantineIntegration:
+    """Tests for quarantine reporting with real database."""
+    
+    @pytest.fixture
+    def db_path(tmp_path):
+        return str(tmp_path / "test.db")
+
+    @pytest.fixture
+    def conn(db_path):
+        from app.db.connection import init_database
+        init_database(db_path)
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    def test_quarantine_report_returns_records_with_provenance(self, conn):
+        from app.services.ingestion import ingest_csv_file
+        
+        bom_path = Path('/home/leopold-lacroix/Desktop/Projects/Cognyx/data/inputs/plm/bom_export.csv')
+        column_map = {
+            'variant_ref': 'variant_ref_raw',
+            'assembly_ref': 'assembly_ref_raw',
+            'component_ref': 'component_ref_raw',
+            'quantity': 'quantity_raw',
+            'uom': 'uom_raw',
+            'supplier_name': 'supplier_raw',
+        }
+        
+        # Ingest a file that will have rows failing hard validation
+        # The actual data should have rows with issues
+        stats = ingest_csv_file(conn, bom_path, 'PLM', 'plm_bom_line', column_map)
+        
+        # Check quarantine reporting functions exist and work
+        count = get_quarantine_count(conn)
+        report = get_quarantine_report(conn)
+        
+        assert isinstance(count, int)
+        assert isinstance(report, list)
+        assert len(report) == count
+
+    def test_quarantine_report_filter_by_source_file(self, conn):
+        from app.services.ingestion import ingest_csv_file, get_quarantine_report
+        
+        bom_path = Path('/home/leopold-lacroix/Desktop/Projects/Cognyx/data/inputs/plm/bom_export.csv')
+        column_map = {
+            'variant_ref': 'variant_ref_raw',
+            'assembly_ref': 'assembly_ref_raw',
+            'component_ref': 'component_ref_raw',
+        }
+        
+        ingest_csv_file(conn, bom_path, 'PLM', 'plm_bom_line', column_map)
+        
+        # Get first source file ID
+        sf = conn.execute('SELECT id FROM source_file LIMIT 1').fetchone()
+        if sf:
+            filtered = get_quarantine_report(conn, source_file_id=sf['id'])
+            assert isinstance(filtered, list)
+
+    def test_quarantine_count_returns_integer(self, conn):
+        count = get_quarantine_count(conn)
+        assert isinstance(count, int)

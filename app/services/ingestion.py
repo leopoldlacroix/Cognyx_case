@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.db.connection import get_connection
+from app.services.validation import validate_hard, check_row_structure
 
 
 def compute_file_hash(file_path: Path) -> str:
@@ -73,7 +74,7 @@ def ingest_csv_file(
     source_system: str,
     table_name: str,
     column_map: Dict[str, str],
-    expected_columns: Optional[List[str]] = None
+    required_cols: Optional[set] = None
 ) -> Dict[str, Any]:
     """
     Ingest a CSV file into the specified table.
@@ -84,7 +85,7 @@ def ingest_csv_file(
         source_system: Source system identifier (PLM, ERP, ENGINEERING)
         table_name: Target database table name
         column_map: Mapping from CSV column names to database column names
-        expected_columns: Optional list of expected CSV columns for validation
+        required_cols: Optional set of required CSV column names
     
     Returns:
         Dict with row_count, quarantined_count, warnings_count, source_file_id
@@ -107,7 +108,7 @@ def ingest_csv_file(
         
         # Check for existing source file (idempotency)
         existing_count = conn.execute(
-            'SELECT COUNT(*) as c FROM plm_bom_line WHERE source_file_id = ?',
+            f'SELECT COUNT(*) as c FROM {table_name} WHERE source_file_id = ?',
             (source_file_id,)
         ).fetchone()['c']
         
@@ -117,16 +118,23 @@ def ingest_csv_file(
             return stats
         
         # Validate required columns
-        if expected_columns:
-            missing = set(expected_columns) - set(reader.fieldnames or [])
+        if required_cols:
+            missing = required_cols - set(reader.fieldnames or [])
             if missing:
-                quarantine_row(conn, source_file_id, 0, {'columns': reader.fieldnames}, 
+                quarantine_row(conn, source_file_id, 0, {'columns': list(reader.fieldnames or [])}, 
                               f"Missing required columns: {missing}")
                 stats['quarantined_count'] += 1
                 return stats
         
         for source_row, row in enumerate(reader, start=2):  # Header is row 1
             stats['row_count'] += 1
+            
+            # Hard validation (pass column_map so validate_hard can map DB names to CSV names)
+            hard_failure = validate_hard(row, source_system, table_name, column_map)
+            if hard_failure:
+                quarantine_row(conn, source_file_id, source_row, row, hard_failure)
+                stats['quarantined_count'] += 1
+                continue
             
             # Build insert values
             insert_values = {'source_file_id': source_file_id, 'source_row': source_row}
@@ -160,60 +168,90 @@ def ingest_all_files(conn: sqlite3.Connection, base_path: Path) -> Dict[str, Any
     Returns a summary report dict.
     """
     files_config = [
-        {'path': 'plm/bom_export.csv', 'system': 'PLM', 'table': 'plm_bom_line',
-         'column_map': {
-             'variant_ref': 'variant_ref_raw',
-             'assembly_ref': 'assembly_ref_raw',
-             'component_ref': 'component_ref_raw',
-             'quantity': 'quantity_raw',
-             'uom': 'uom_raw',
-             'supplier_name': 'supplier_raw',
-         }},
-        {'path': 'plm/assembly_master.csv', 'system': 'PLM', 'table': 'plm_assembly',
-         'column_map': {
-             'plm_assembly_ref': 'assembly_ref_raw',
-             'assembly_description': 'assembly_description_raw',
-             'variant_ref': 'variant_ref_raw',
-             'revision': 'revision_raw',
-             'lifecycle': 'lifecycle_raw',
-         }},
-        {'path': 'plm/variant_configuration.csv', 'system': 'PLM', 'table': 'plm_variant',
-         'column_map': {
-             'variant_ref': 'variant_ref_raw',
-             'variant_name': 'variant_name_raw',
-             'train_family': 'train_family_raw',
-             'market': 'market_raw',
-             'climate_class': 'climate_class_raw',
-             'capacity_class': 'capacity_class_raw',
-             'voltage_system': 'voltage_system_raw',
-             'notes': 'notes_raw',
-         }},
-        {'path': 'erp/material_master.csv', 'system': 'ERP', 'table': 'erp_material',
-         'column_map': {
-             'material_id': 'material_id_raw',
-             'material_description': 'description_raw',
-             'material_type': 'material_type_raw',
-             'base_unit': 'base_unit_raw',
-             'supplier_id': 'supplier_id_raw',
-             'category': 'category_raw',
-             'status': 'status_raw',
-             'standard_cost_eur': 'cost_raw',
-         }},
-        {'path': 'erp/supplier_master.csv', 'system': 'ERP', 'table': 'erp_supplier',
-         'column_map': {
-             'supplier_id': 'supplier_id_raw',
-             'supplier_name': 'supplier_name_raw',
-             'country': 'country_raw',
-         }},
-        {'path': 'engineering/technical_notes.csv', 'system': 'ENGINEERING', 'table': 'engineering_note',
-         'column_map': {
-             'object_reference': 'object_reference_raw',
-             'object_type': 'object_type',
-             'language': 'language',
-             'author': 'author',
-             'date': 'date',
-             'note_text': 'note_text',
-         }},
+        {
+            'path': 'plm/bom_export.csv',
+            'system': 'PLM',
+            'table': 'plm_bom_line',
+            'required_cols': {'variant_ref', 'assembly_ref', 'component_ref'},
+            'column_map': {
+                'variant_ref': 'variant_ref_raw',
+                'assembly_ref': 'assembly_ref_raw',
+                'component_ref': 'component_ref_raw',
+                'quantity': 'quantity_raw',
+                'uom': 'uom_raw',
+                'supplier_name': 'supplier_raw',
+            },
+        },
+        {
+            'path': 'plm/assembly_master.csv',
+            'system': 'PLM',
+            'table': 'plm_assembly',
+            'required_cols': {'plm_assembly_ref'},
+            'column_map': {
+                'plm_assembly_ref': 'assembly_ref_raw',
+                'assembly_description': 'assembly_description_raw',
+                'variant_ref': 'variant_ref_raw',
+                'revision': 'revision_raw',
+                'lifecycle': 'lifecycle_raw',
+            },
+        },
+        {
+            'path': 'plm/variant_configuration.csv',
+            'system': 'PLM',
+            'table': 'plm_variant',
+            'required_cols': {'variant_ref'},
+            'column_map': {
+                'variant_ref': 'variant_ref_raw',
+                'variant_name': 'variant_name_raw',
+                'train_family': 'train_family_raw',
+                'market': 'market_raw',
+                'climate_class': 'climate_class_raw',
+                'capacity_class': 'capacity_class_raw',
+                'voltage_system': 'voltage_system_raw',
+                'notes': 'notes_raw',
+            },
+        },
+        {
+            'path': 'erp/material_master.csv',
+            'system': 'ERP',
+            'table': 'erp_material',
+            'required_cols': {'material_id'},
+            'column_map': {
+                'material_id': 'material_id_raw',
+                'material_description': 'description_raw',
+                'material_type': 'material_type_raw',
+                'base_unit': 'base_unit_raw',
+                'supplier_id': 'supplier_id_raw',
+                'category': 'category_raw',
+                'status': 'status_raw',
+                'standard_cost_eur': 'cost_raw',
+            },
+        },
+        {
+            'path': 'erp/supplier_master.csv',
+            'system': 'ERP',
+            'table': 'erp_supplier',
+            'required_cols': {'supplier_id'},
+            'column_map': {
+                'supplier_id': 'supplier_id_raw',
+                'supplier_name': 'supplier_name_raw',
+                'country': 'country_raw',
+            },
+        },
+        {
+            'path': 'engineering/technical_notes.csv',
+            'system': 'ENGINEERING',
+            'table': 'engineering_note',
+            'required_cols': {'object_reference', 'object_type', 'note_text'},
+            'column_map': {
+                'object_reference': 'object_reference_raw',
+                'object_type': 'object_type',
+                'language': 'language',
+                'author': 'author',
+                'date': 'date',
+                'note_text': 'note_text',
+            },
+        },
     ]
     
     summary = {
@@ -233,7 +271,8 @@ def ingest_all_files(conn: sqlite3.Connection, base_path: Path) -> Dict[str, Any
             file_path,
             config['system'],
             config['table'],
-            config['column_map']
+            config['column_map'],
+            config.get('required_cols')
         )
         
         summary['files'].append({
