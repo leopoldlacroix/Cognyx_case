@@ -23,6 +23,12 @@ def conn(db_path):
 
 
 @pytest.fixture
+def db_connection(conn):
+    """Alias for conn — ERP normalization tests request db_connection."""
+    return conn
+
+
+@pytest.fixture
 def sample_csv(tmp_path):
     """Create a sample CSV file for testing."""
     csv_path = tmp_path / "sample.csv"

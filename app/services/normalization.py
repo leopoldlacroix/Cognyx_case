@@ -191,6 +191,13 @@ def normalize_erp_materials(conn: sqlite3.Connection, config: Optional[Dict] = N
         'uom_unknown': 0,
     }
 
+    # Ensure supplier_id_normalized is populated (strip + upper — matches lookup compare)
+    conn.execute(
+        'UPDATE erp_supplier '
+        'SET supplier_id_normalized = UPPER(TRIM(supplier_id_raw)) '
+        'WHERE supplier_id_normalized IS NULL AND supplier_id_raw IS NOT NULL'
+    )
+
     # Build supplier lookup: normalized_id → normalized_name
     # Match against supplier_id_normalized (which is the normalized form of supplier_id_raw)
     supplier_lookup = {}

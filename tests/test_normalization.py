@@ -123,6 +123,13 @@ class TestERPNormalization:
         from app.db.schema import create_schema
         create_schema(conn)
 
+        # FK parent for ERP rows
+        conn.execute(
+            'INSERT INTO source_file (source_system, file_name, file_hash, ingested_at) '
+            'VALUES (?, ?, ?, ?)',
+            ('ERP', 'material_master.csv', 'testhash', '2026-01-01T00:00:00Z')
+        )
+
         # Insert ERP supplier
         conn.execute(
             'INSERT INTO erp_supplier (source_file_id, source_row, supplier_id_raw, '
@@ -146,7 +153,9 @@ class TestERPNormalization:
 
         # Verify
         result = conn.execute(
-            'SELECT supplier_name_normalized, base_unit_normalized FROM erp_material WHERE id = 2'
+            'SELECT supplier_name_normalized, base_unit_normalized FROM erp_material '
+            'WHERE material_id_raw = ?',
+            ('MAT-10001',)
         ).fetchone()
         assert result['supplier_name_normalized'] == 'SIEMENS MOBILITY', \
             f"Expected 'SIEMENS MOBILITY', got {result['supplier_name_normalized']}"
@@ -163,6 +172,13 @@ class TestERPNormalization:
         # Create schema
         from app.db.schema import create_schema
         create_schema(conn)
+
+        # FK parent for ERP rows
+        conn.execute(
+            'INSERT INTO source_file (source_system, file_name, file_hash, ingested_at) '
+            'VALUES (?, ?, ?, ?)',
+            ('ERP', 'material_master.csv', 'testhash', '2026-01-01T00:00:00Z')
+        )
 
         # Insert ERP material with unknown supplier (no supplier in master)
         conn.execute(

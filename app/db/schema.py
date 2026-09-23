@@ -6,6 +6,19 @@ Creates all source ingestion tables and source entity tables.
 import sqlite3
 
 
+def _ensure_column(
+    conn: sqlite3.Connection,
+    table: str,
+    column: str,
+    col_type: str,
+) -> None:
+    """Add a column to an existing table if it is missing (safe for already-created DBs)."""
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    existing = {row[1] for row in rows}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+
+
 def create_schema(conn: sqlite3.Connection) -> None:
     """Create all tables for the Cognyx data model."""
     cursor = conn.cursor()
@@ -169,14 +182,31 @@ def create_schema(conn: sqlite3.Connection) -> None:
             supplier_id_raw TEXT NOT NULL,
             supplier_name_raw TEXT,
             country_raw TEXT,
+            supplier_id_normalized TEXT,
             supplier_name_normalized TEXT,
             FOREIGN KEY (source_file_id) REFERENCES source_file(id)
         )
     """)
 
+    # Existing DBs created before supplier_id_normalized: add column if absent
+    _ensure_column(conn, 'erp_supplier', 'supplier_id_normalized', 'TEXT')
+
+    # Backfill normalized IDs (strip + upper — same comparison as ERP material lookup)
+    cursor.execute("""
+        UPDATE erp_supplier
+        SET supplier_id_normalized = UPPER(TRIM(supplier_id_raw))
+        WHERE supplier_id_normalized IS NULL
+          AND supplier_id_raw IS NOT NULL
+    """)
+
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_erp_supplier_name_normalized
         ON erp_supplier(supplier_name_normalized)
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_erp_supplier_id_normalized
+        ON erp_supplier(supplier_id_normalized)
     """)
 
     # ============================================================
