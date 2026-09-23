@@ -18,6 +18,9 @@ from app.services.normalization import (
     normalize_description,
     normalize_uom,
     normalize_supplier,
+    apply_reference_aliases,
+    apply_uom_aliases,
+    apply_supplier_aliases,
 )
 
 
@@ -412,16 +415,32 @@ def get_warnings(
 def _apply_normalization(
     insert_values: Dict[str, Any],
     table_name: str,
-    raw_row: Dict[str, Any]
+    raw_row: Dict[str, Any],
+    config: Optional[Dict] = None
 ) -> None:
-    """Apply normalization to produce *_normalized values for supported tables."""
+    """Apply normalization + aliases to produce *_normalized values."""
+    if config is None:
+        from app.services.normalization import load_normalization_config
+        config = load_normalization_config()
+
     if table_name == 'plm_bom_line':
+        # Reference fields: generic normalize -> alias lookup
         insert_values['variant_ref_normalized'] = normalize_reference(raw_row.get('variant_ref'))
         insert_values['assembly_ref_normalized'] = normalize_reference(raw_row.get('assembly_ref'))
-        insert_values['component_ref_normalized'] = normalize_reference(raw_row.get('component_ref'))
+        raw_comp = raw_row.get('component_ref')
+        generic_comp = normalize_reference(raw_comp)
+        insert_values['component_ref_normalized'] = apply_reference_aliases(generic_comp, config)
+        # Description
         insert_values['description_normalized'] = normalize_description(raw_row.get('description_raw'))
-        insert_values['uom_normalized'] = normalize_uom(raw_row.get('uom_raw'))
-        insert_values['supplier_normalized'] = normalize_supplier(raw_row.get('supplier_name'))
+        # UOM: generic -> alias
+        raw_uom = raw_row.get('uom')
+        generic_uom = normalize_uom(raw_uom)
+        insert_values['uom_normalized'] = apply_uom_aliases(generic_uom, config)
+        # Supplier: generic -> alias
+        raw_sup = raw_row.get('supplier_name')
+        generic_sup = normalize_supplier(raw_sup)
+        insert_values['supplier_normalized'] = apply_supplier_aliases(generic_sup, config)
+        # Quantity
         qty_raw = raw_row.get('quantity')
         if qty_raw:
             try:
