@@ -172,15 +172,69 @@ def _insert_warning(
     warning_type: str,
     source_row_id: int = 1,
     message: str = "warn",
+    source_table: str = "plm_bom_line",
 ) -> None:
     conn.execute(
         """
         INSERT INTO warnings (source_table, source_row_id, warning_type, warning_message, created_at)
-        VALUES ('plm_bom_line', ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         """,
-        (source_row_id, warning_type, message, _now()),
+        (source_table, source_row_id, warning_type, message, _now()),
     )
     conn.commit()
+
+
+def _insert_source_component(
+    conn,
+    *,
+    source_reference: str,
+    normalized_reference: str | None = None,
+    source_system: str = "PLM",
+) -> int:
+    cur = conn.execute(
+        """
+        INSERT INTO source_component (
+            source_system, source_reference, normalized_reference,
+            description, source_record_type, source_record_id, created_at
+        ) VALUES (?, ?, ?, ?, 'TEST', 1, ?)
+        """,
+        (
+            source_system,
+            source_reference,
+            normalized_reference or source_reference,
+            "component",
+            _now(),
+        ),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def _insert_reconciliation(
+    conn,
+    *,
+    source_component_id: int,
+    status: str = "PENDING",
+    relationship: str = "identity",
+) -> int:
+    evidence = {"relationship": relationship, "review_needed": True}
+    cur = conn.execute(
+        """
+        INSERT INTO component_reconciliation (
+            source_component_id, component_id, status, method, confidence,
+            rationale, evidence_json, created_at
+        ) VALUES (?, NULL, ?, 'NORMALIZED', 0.95, 'alias', ?, ?)
+        """,
+        (source_component_id, status, json.dumps(evidence), _now()),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def _assert_record_shape(rec: dict) -> None:
+    assert set(rec.keys()) >= {"source_table", "source_id", "source_file", "source_row"}
+    assert isinstance(rec["source_id"], str)
+    assert isinstance(rec["source_row"], int) or rec["source_row"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -388,8 +442,8 @@ def test_blockers_erp_obsolete_separate_from_assembly(conn):
 def test_data_quality_invalid_quantity_from_quarantine(conn):
     from app.services.quality import data_quality_issues
 
-    sf = _source_file(conn)
-    _insert_quarantine(
+    sf = _source_file(conn, "PLM", "bom_export.csv")
+    qid = _insert_quarantine(
         conn,
         source_file_id=sf,
         source_row=32,
@@ -402,6 +456,8 @@ def test_data_quality_invalid_quantity_from_quarantine(conn):
     )
     # Must not also appear as a BOM line
     result = data_quality_issues(conn)
+    assert "unresolved_reconciliation_count" in result
+    assert result["unresolved_reconciliation_count"] == 0
     issues = result["issues"]
     invalid = [i for i in issues if i["issue_type"] == "invalid_quantity"]
     assert len(invalid) == 1
@@ -409,13 +465,21 @@ def test_data_quality_invalid_quantity_from_quarantine(conn):
     assert "quantity" in invalid[0]["explanation"].lower() or "quantity" in (
         invalid[0].get("detail") or ""
     ).lower()
+    assert "records" in invalid[0]
+    assert len(invalid[0]["records"]) == 1
+    rec = invalid[0]["records"][0]
+    _assert_record_shape(rec)
+    assert rec["source_table"] == "quarantine"
+    assert rec["source_id"] == str(qid)
+    assert rec["source_file"] == "bom_export.csv"
+    assert rec["source_row"] == 32
 
 
 def test_data_quality_duplicate_bom_key_after_alias(conn):
     from app.services.quality import data_quality_issues
 
-    sf = _source_file(conn)
-    _insert_bom(
+    sf = _source_file(conn, "PLM", "bom_export.csv")
+    bom1 = _insert_bom(
         conn,
         source_file_id=sf,
         variant_ref="REGIO-STD",
@@ -441,6 +505,15 @@ def test_data_quality_duplicate_bom_key_after_alias(conn):
     refs_blob = json.dumps(dups[0]["refs"])
     assert str(bom2) in refs_blob or "CTRL-AIR" in refs_blob
     assert "CTRL-AIR-01" in json.dumps(dups[0]) or "CTRL-AIR01" in json.dumps(dups[0])
+    assert "records" in dups[0]
+    assert len(dups[0]["records"]) == 2
+    rec_ids = {r["source_id"] for r in dups[0]["records"]}
+    assert rec_ids == {str(bom1), str(bom2)}
+    for rec in dups[0]["records"]:
+        _assert_record_shape(rec)
+        assert rec["source_table"] == "plm_bom_line"
+        assert rec["source_file"] == "bom_export.csv"
+        assert rec["source_row"] in (1, 301)
 
 
 def test_data_quality_uom_aliased_not_conflict(conn):
@@ -463,7 +536,7 @@ def test_data_quality_uom_aliased_not_conflict(conn):
         variant_ref="REGIO-COMFORT",
         assembly_ref="HVAC-M02",
         component_ref="FILTER-HVAC-01",
-        uom_raw="EA",
+        uom_raw="units",
         uom_normalized="EA",
         source_row=2,
     )
@@ -472,25 +545,60 @@ def test_data_quality_uom_aliased_not_conflict(conn):
     assert len(aliased) == 1
     assert "conflict" not in aliased[0]["issue_type"]
     assert "EA" in json.dumps(aliased[0])
+    assert "pcs" in aliased[0]["refs"] or "pcs" in aliased[0]["detail"]
+    assert "units" in aliased[0]["refs"] or "units" in aliased[0]["detail"]
+    assert "records" in aliased[0]
+    # Query has no line id; records may be empty
+    assert isinstance(aliased[0]["records"], list)
 
 
 def test_data_quality_warning_summary_marks_mapping_noise(conn):
     from app.services.quality import data_quality_issues
 
+    sf = _source_file(conn, "PLM", "bom_export.csv")
     for i in range(3):
-        _insert_warning(conn, warning_type="missing_description", source_row_id=i + 1)
+        row = i + 2  # CSV data rows start at 2
+        _insert_bom(
+            conn,
+            source_file_id=sf,
+            variant_ref="REGIO-STD",
+            assembly_ref="HVAC-M01",
+            component_ref=f"PART-{i}",
+            source_row=row,
+        )
+        _insert_warning(conn, warning_type="missing_description", source_row_id=row)
+    _insert_bom(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-STD",
+        assembly_ref="HVAC-M01",
+        component_ref="PART-SUP",
+        source_row=10,
+    )
     _insert_warning(conn, warning_type="empty_supplier", source_row_id=10)
+    _insert_bom(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-STD",
+        assembly_ref="HVAC-M01",
+        component_ref="PART-UOM",
+        source_row=11,
+    )
     _insert_warning(conn, warning_type="unknown_uom", source_row_id=11)
 
     result = data_quality_issues(conn)
     assert "issues" in result
     assert "ingestion_warning_summary" in result
+    assert "unresolved_reconciliation_count" in result
     summary = result["ingestion_warning_summary"]
     assert summary["missing_description"]["count"] == 3
     assert summary["missing_description"]["mapping_noise"] is True
+    assert summary["missing_description"]["by_source_file"] == {"bom_export.csv": 3}
     assert summary["empty_supplier"]["count"] == 1
     assert summary["empty_supplier"]["mapping_noise"] is True
+    assert summary["empty_supplier"]["by_source_file"] == {"bom_export.csv": 1}
     assert summary["unknown_uom"]["count"] == 1
+    assert summary["unknown_uom"]["by_source_file"] == {"bom_export.csv": 1}
     # Not one report row per warning
     warn_rows = [
         i
@@ -498,6 +606,241 @@ def test_data_quality_warning_summary_marks_mapping_noise(conn):
         if i["issue_type"] in ("missing_description", "empty_supplier")
     ]
     assert warn_rows == []
+
+
+def test_data_quality_by_source_file_two_missing_description(conn):
+    from app.services.quality import data_quality_issues
+
+    sf = _source_file(conn, "PLM", "bom_export.csv")
+    for row in (2, 3):
+        _insert_bom(
+            conn,
+            source_file_id=sf,
+            variant_ref="REGIO-STD",
+            assembly_ref="HVAC-M01",
+            component_ref=f"PART-R{row}",
+            source_row=row,
+        )
+        _insert_warning(conn, warning_type="missing_description", source_row_id=row)
+    # Unknown table name is skipped for by_source_file but still counted
+    _insert_warning(
+        conn,
+        warning_type="missing_description",
+        source_row_id=99,
+        source_table="not_a_real_table",
+    )
+
+    result = data_quality_issues(conn)
+    entry = result["ingestion_warning_summary"]["missing_description"]
+    assert entry["count"] == 3
+    assert entry["by_source_file"] == {"bom_export.csv": 2}
+
+
+def test_data_quality_duplicate_reference_cross_system(conn):
+    from app.services.quality import data_quality_issues
+
+    sc_plm = _insert_source_component(
+        conn, source_reference="SHARED-REF", normalized_reference="SHARED-REF", source_system="PLM"
+    )
+    sc_erp = _insert_source_component(
+        conn, source_reference="SHARED-REF-ERP", normalized_reference="SHARED-REF", source_system="ERP"
+    )
+    # Single-system duplicate normalized ref must not appear
+    _insert_source_component(
+        conn, source_reference="SINGLE-A", normalized_reference="SINGLE-ONLY", source_system="PLM"
+    )
+    _insert_source_component(
+        conn, source_reference="SINGLE-B", normalized_reference="SINGLE-ONLY", source_system="PLM"
+    )
+    # CTRL-AIR-01 and MAT-10001 stay distinct unless same normalized string
+    _insert_source_component(
+        conn, source_reference="CTRL-AIR-01", normalized_reference="CTRL-AIR-01", source_system="PLM"
+    )
+    _insert_source_component(
+        conn, source_reference="MAT-10001", normalized_reference="MAT-10001", source_system="ERP"
+    )
+
+    result = data_quality_issues(conn)
+    dups = [i for i in result["issues"] if i["issue_type"] == "duplicate_reference"]
+    assert len(dups) == 1
+    detail = dups[0]["detail"]
+    assert "SHARED-REF" in detail
+    assert "PLM" in detail and "ERP" in detail
+    assert "CTRL-AIR-01" not in detail or "MAT-10001" not in detail
+    assert "SINGLE-ONLY" not in detail
+    assert len(dups[0]["records"]) == 2
+    rec_ids = {r["source_id"] for r in dups[0]["records"]}
+    assert rec_ids == {str(sc_plm), str(sc_erp)}
+    for rec in dups[0]["records"]:
+        _assert_record_shape(rec)
+        assert rec["source_table"] == "source_component"
+
+
+def test_data_quality_conflicting_facts_from_blockers(conn):
+    from app.services.quality import blockers, data_quality_issues
+
+    sf = _source_file(conn, "ENGINEERING", "technical_notes.csv")
+    _insert_note(conn, source_file_id=sf, object_reference="CTRL-AIR-01", note_text=N064_TEXT)
+    # Single OBSOLETE fact must not become conflicting_facts
+    sf_erp = _source_file(conn, "ERP", "material_master.csv")
+    _insert_material(conn, source_file_id=sf_erp, material_id="MAT-20001", status="OBSOLETE")
+
+    blockers(conn)
+    result = data_quality_issues(conn)
+    conflicts = [i for i in result["issues"] if i["issue_type"] == "conflicting_facts"]
+    assert len(conflicts) >= 1
+    voltage = [i for i in conflicts if "24 V DC" in i["detail"] and "48 V DC" in i["detail"]]
+    assert len(voltage) == 1
+    assert len(voltage[0]["records"]) >= 2
+    for rec in voltage[0]["records"]:
+        _assert_record_shape(rec)
+        assert rec["source_table"] == "engineering_note"
+        assert rec["source_id"] == "N-064"
+    obsolete_issues = [
+        i for i in conflicts if "OBSOLETE" in i["detail"] and "24 V DC" not in i["detail"]
+    ]
+    assert obsolete_issues == []
+
+
+def test_data_quality_unresolved_reconciliation_identity(conn):
+    from app.services.quality import data_quality_issues
+
+    sc_pending = _insert_source_component(conn, source_reference="CTRL-AIR01")
+    sc_rejected = _insert_source_component(conn, source_reference="CTRL-AIRO1")
+    sc_accepted = _insert_source_component(conn, source_reference="CTRL-AIR-01")
+    sc_sim = _insert_source_component(conn, source_reference="CTRL-DOOR-01")
+
+    rid_p = _insert_reconciliation(conn, source_component_id=sc_pending, status="PENDING")
+    rid_r = _insert_reconciliation(conn, source_component_id=sc_rejected, status="REJECTED")
+    _insert_reconciliation(conn, source_component_id=sc_accepted, status="ACCEPTED")
+    _insert_reconciliation(
+        conn, source_component_id=sc_sim, status="PENDING", relationship="functional_similarity"
+    )
+
+    result = data_quality_issues(conn)
+    assert result["unresolved_reconciliation_count"] == 2
+    unresolved = [i for i in result["issues"] if i["issue_type"] == "unresolved_reconciliation"]
+    assert len(unresolved) == 1
+    assert "2" in unresolved[0]["detail"]
+    rec_ids = {r["source_id"] for r in unresolved[0]["records"]}
+    assert rec_ids == {str(rid_p), str(rid_r)}
+    for rec in unresolved[0]["records"]:
+        _assert_record_shape(rec)
+        assert rec["source_table"] == "component_reconciliation"
+
+
+def test_data_quality_alias_summary_from_config(conn):
+    from app.services.quality import data_quality_issues
+    from app.services.normalization import load_normalization_config
+
+    config = load_normalization_config()
+    aliases = config["reference_aliases"]
+    assert aliases["CTRL-AIR01"] == "CTRL-AIR-01"
+
+    sf = _source_file(conn, "PLM", "bom_export.csv")
+    bom_id = _insert_bom(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-STD",
+        assembly_ref="HVAC-M01",
+        component_ref="CTRL-AIR01",
+        component_ref_normalized="CTRL-AIR-01",
+        source_row=5,
+    )
+
+    result = data_quality_issues(conn)
+    aliases_issues = [i for i in result["issues"] if i["issue_type"] == "alias_summary"]
+    assert len(aliases_issues) == 1
+    assert "CTRL-AIR01 → CTRL-AIR-01" in aliases_issues[0]["detail"]
+    assert any(
+        r["source_table"] == "plm_bom_line" and r["source_id"] == str(bom_id)
+        for r in aliases_issues[0]["records"]
+    )
+
+
+def test_data_quality_new_issue_types_sorted_after_existing(conn):
+    from app.services.quality import blockers, data_quality_issues
+
+    sf = _source_file(conn, "PLM", "bom_export.csv")
+    _insert_quarantine(
+        conn,
+        source_file_id=sf,
+        source_row=32,
+        raw_data={"plm_row_id": "BOM-0031", "quantity": "one"},
+        reason="Unparseable quantity: one",
+    )
+    _insert_bom(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-STD",
+        assembly_ref="HVAC-M01",
+        component_ref="CTRL-AIR-01",
+        component_ref_normalized="CTRL-AIR-01",
+        source_row=1,
+    )
+    _insert_bom(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-STD",
+        assembly_ref="HVAC-M01",
+        component_ref="CTRL-AIR01",
+        component_ref_normalized="CTRL-AIR-01",
+        source_row=301,
+    )
+    _insert_bom(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-STD",
+        assembly_ref="HVAC-M02",
+        component_ref="FILTER-HVAC-01",
+        uom_raw="pcs",
+        uom_normalized="EA",
+        source_row=10,
+    )
+    _insert_bom(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-COMFORT",
+        assembly_ref="HVAC-M02",
+        component_ref="FILTER-HVAC-01",
+        uom_raw="units",
+        uom_normalized="EA",
+        source_row=11,
+    )
+    _insert_source_component(
+        conn, source_reference="X-A", normalized_reference="X-SHARED", source_system="PLM"
+    )
+    _insert_source_component(
+        conn, source_reference="X-B", normalized_reference="X-SHARED", source_system="ERP"
+    )
+    sc = _insert_source_component(conn, source_reference="PEND-1")
+    _insert_reconciliation(conn, source_component_id=sc, status="PENDING")
+
+    sf_eng = _source_file(conn, "ENGINEERING", "technical_notes.csv")
+    _insert_note(conn, source_file_id=sf_eng, object_reference="CTRL-AIR-01", note_text=N064_TEXT)
+    blockers(conn)
+
+    result = data_quality_issues(conn)
+    types = [i["issue_type"] for i in result["issues"]]
+    # Existing three keep relative order; new types appended sorted among themselves
+    first_three = [t for t in types if t in ("invalid_quantity", "duplicate_bom_key", "uom_aliased")]
+    assert first_three == ["invalid_quantity", "duplicate_bom_key", "uom_aliased"]
+    new_types = [
+        t
+        for t in types
+        if t
+        in (
+            "alias_summary",
+            "conflicting_facts",
+            "duplicate_reference",
+            "unresolved_reconciliation",
+        )
+    ]
+    assert new_types == sorted(new_types)
+    # New types appear after the existing three
+    last_existing_idx = max(types.index(t) for t in first_three)
+    first_new_idx = min(types.index(t) for t in new_types)
+    assert first_new_idx > last_existing_idx
 
 
 # ---------------------------------------------------------------------------
