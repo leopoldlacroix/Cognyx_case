@@ -17,7 +17,7 @@ current_phase_name: Human Review Workflow + Core Analysis
 # State: Cognyx BOM Reuse Explorer (PoC)
 
 **Updated:** 2026-09-23
-**Current Phase:** 03 (not started)
+**Current Phase:** 03 (planned, not executed)
 **Next Phase:** Phase 3 — Human Review Workflow + Core Analysis
 **Mode:** MVP (vertical slices)
 **Granularity:** Standard
@@ -72,7 +72,7 @@ current_phase_name: Human Review Workflow + Core Analysis
 
 ## What Is Not Done
 
-- **Phase 3 execution** — Human review interface, filterable pending reconciliations, canonical propagation, core analysis reports
+- **Phase 3 execution** — Plans written 2026-09-23 (`03-01` through `03-05`). Not started. CLI review + canonical BOM + four reports. See `.planning/phases/03-human-review-workflow-core-analysis/03-CONTEXT.md` for Phase 1–2 corrections (no web UI, no `MAT-10001` identity, empty assembly reconciliation, BOM descriptions not ingested).
 - **Phase 4 execution** — Assembly-level overlap metrics, variant drill-down, blocker evidence trails
 - **Phase 5 execution** — Explainability for all analysis results, full SCEN-G/H/I/J deepening
 - **Scenario validation** — Verify all 10 scenarios A–J are demonstrable end-to-end

@@ -111,7 +111,9 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 ## Phase 3: Human Review Workflow + Core Analysis
 
-**Goal:** Human operators can review reconciliation proposals (accept/reject/redirect with rationale), filtered and navigable by confidence, match method, and source system. Accepted reconciliations propagate to the canonical model; rejected ones are recorded. Core analysis reports — already reused, reusable candidates, blockers, data-quality issues — are generated from the canonical model with explainability. Obvious reuse scenarios (A), potential reuse requiring review (F), conflicting evidence (G), and lifecycle mismatches (J) are surfaced.
+**Status:** Planned (2026-09-23). Not executed. Plans adjusted for Phase 1–2 outcomes: CLI not web UI, canonical tables still missing, proposals are PENDING, `MAT-10001` is not an identity link, assembly reconciliation is empty, BOM component descriptions were not ingested.
+
+**Goal:** Human operators can review reconciliation proposals (accept/reject/redirect with rationale), filtered and navigable by confidence, match method, and source system. Accepted reconciliations propagate to the canonical model; rejected ones are recorded. Core analysis reports — already reused, reusable candidates, blockers, data-quality issues — are generated from the canonical model with explainability. Obvious reuse scenarios (A), potential reuse requiring review (F), conflicting evidence (G), data-quality issues (I), and lifecycle mismatches (J) are surfaced.
 
 **Scope:** Review workflow (layer 3.5 trigger) + canonicalization layer + analysis layer initial outputs (architectural layers 3.5, 3.6). This is the first phase where the full pipeline — ingest → normalize → reconcile → human decide → canonical → analyze — is operational end-to-end.
 
@@ -119,11 +121,11 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 | # | Plan | Requirements |
 |----|------|-------------|
-| 3.1 | **Human review interface** — accept/reject/redirect reconciliation proposals; optional rationale text; decision persisted, status updated to `ACCEPTED` or `REJECTED`; redirects create a new candidate proposal | REVIEW-01 |
-| 3.2 | **Filterable pending reconciliations** — pending reconciliations visible by entity type (component/assembly/supplier); filterable by confidence band, match method, source system; sortable; counts shown per filter | REVIEW-02 |
-| 3.3 | **Accepted → canonical propagation; rejected → recorded** — accepted reconciliations create canonical entity mappings and canonical BOM relationships; rejected reconciliations recorded with rejection reason; unresolved source rows remain visible; canonical BOM only uses accepted mappings | REVIEW-03 |
-| 3.4 | **Core reuse analysis reports** — "already reused" report (components/assemblies shared across variants from accepted canonical model), "reusable candidates" report (functional similarity + context), "blockers" report (specs, lifecycle state, unresolved conflicts preventing safe reuse), "data-quality issues" report (references, suppliers, units, quantities, attributes); all reports traceable to source evidence | ANALYSIS-01, ANALYSIS-02, ANALYSIS-03, ANALYSIS-04, SCEN-A, SCEN-F |
-| 3.5 | **Conflicting evidence + lifecycle mismatch surfacing** — conflicting technical facts (e.g. ERP 48V vs note 24V for same component) surfaced as `CONFLICTING` status, not normalized away; lifecycle state mismatches (ERP vs PLM status differences) reported as a separate issue category; explainability text explains why two records were considered equivalent, similar, or conflicting | ANALYSIS-05, SCEN-G, SCEN-J |
+| 3.1 | **Review decisions** — `decide_reconciliation`: accept / reject / redirect on PENDING rows; identity accept sets a canonical id; similarity accept does not merge; create canonical tables without retrofitting SQLite FKs | REVIEW-01 |
+| 3.2 | **Filterable queue** — list by entity type, status, confidence band, method, source system, and `evidence_json.relationship` | REVIEW-02 |
+| 3.3 | **Canonical BOM** — accepted identity clusters share one component; singletons with no identity row propagate (otherwise SCEN-A is empty); pending/rejected identity stays unresolved; assemblies and variants are created without waiting for empty assembly reconciliation | REVIEW-03 |
+| 3.4 | **Reuse reports** — already reused from `bom_relationship`; candidates from functional-similarity rows plus the rugged-description rule (SCEN-F cameras are not in the Phase 2 hyphen detector) | ANALYSIS-01, ANALYSIS-02, ANALYSIS-05, SCEN-A, SCEN-F |
+| 3.5 | **Conflicts, data quality, CLI** — N-064 voltages both kept; export counting lifecycle is Prototype vs Released; quarantine + duplicate BOM keys; CLI `review` and `analyze` write JSON under `data/processed/` | ANALYSIS-03, ANALYSIS-04, ANALYSIS-05, SCEN-G, SCEN-I, SCEN-J |
 
 ### Success Criteria (observable user behaviors)
 
@@ -149,6 +151,7 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 | SCEN-A | Phase 3 | Pending |
 | SCEN-F | Phase 3 | Pending |
 | SCEN-G | Phase 3 | Pending |
+| SCEN-I | Phase 3 | Pending |
 | SCEN-J | Phase 3 | Pending |
 
 ---
