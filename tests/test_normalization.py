@@ -279,3 +279,107 @@ class TestERPNormalization:
             "SELECT warning_type FROM warnings WHERE warning_type = 'unknown_uom'"
         ).fetchall()
         assert len(uom_warnings) == 1, f"Expected 1 unknown_uom warning, got {len(uom_warnings)}"
+
+
+class TestEngineeringNoteLanguageDetection:
+    """Tests for engineering note language detection (NORM-06 / Task 2.2.1)."""
+
+    def test_detect_language_french(self):
+        from app.services.normalization import detect_language
+
+        assert detect_language(
+            'Référence saisie avec un O au lieu du zéro dans certaines extractions PLM.'
+        ) == 'FR'
+        assert detect_language(
+            'Le contrôleur PIS est commun aux configurations Standard, Comfort et Nordic.'
+        ) == 'FR'
+
+    def test_detect_language_german(self):
+        from app.services.normalization import detect_language
+
+        assert detect_language(
+            'Der Sensor ist für den Einsatz in Deutschland und Aachen freigegeben.'
+        ) == 'DE'
+        assert detect_language(
+            'Die Baugruppe und das Modul sind mit der gleichen Schnittstelle.'
+        ) == 'DE'
+
+    def test_detect_language_english_default(self):
+        from app.services.normalization import detect_language
+
+        assert detect_language(
+            'Equivalent to CTRL-AIR-01 used on the previous platform.'
+        ) == 'EN'
+        assert detect_language('') == 'EN'
+        assert detect_language('   ') == 'EN'
+        assert detect_language(None) == 'EN'
+
+    def test_normalize_engineering_notes_language_detection(self, db_connection):
+        """language_normalized populated; blank notes default EN with soft warning."""
+        from app.services.normalization import normalize_engineering_notes
+        from app.db.connection import get_connection
+        from app.db.schema import create_schema
+
+        conn = get_connection(':memory:')
+        conn.execute('PRAGMA foreign_keys = ON')
+        create_schema(conn)
+
+        conn.execute(
+            'INSERT INTO source_file (source_system, file_name, file_hash, ingested_at) '
+            'VALUES (?, ?, ?, ?)',
+            ('ENGINEERING', 'technical_notes.csv', 'testhash', '2026-01-01T00:00:00Z'),
+        )
+
+        notes = [
+            (1, 'component', 'CTRL-AIR-O1', 'fr',
+             'Référence saisie avec un O au lieu du zéro. Se reporter à CTRL-AIR-01.'),
+            (2, 'component', 'TEMP-SENS-NORDIC', 'en',
+             'Nordic temperature sensor is required below -20°C.'),
+            (3, 'component', 'SENSOR-DE', 'de',
+             'Der Sensor und die Baugruppe sind für Deutschland freigegeben.'),
+            (4, 'component', 'BLANK-NOTE', 'en', '   '),
+        ]
+        for source_row, obj_type, obj_ref, lang, text in notes:
+            conn.execute(
+                'INSERT INTO engineering_note '
+                '(source_file_id, source_row, object_reference_raw, object_type, '
+                'language, author, date, note_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                (1, source_row, obj_ref, obj_type, lang, 'Test', '2026-01-01', text),
+            )
+        conn.commit()
+
+        # Capture raw texts before normalization
+        raw_before = {
+            r['id']: r['note_text']
+            for r in conn.execute('SELECT id, note_text FROM engineering_note').fetchall()
+        }
+
+        stats = normalize_engineering_notes(conn)
+
+        assert stats['processed'] == 4
+        assert stats['languages'].get('FR') == 1
+        assert stats['languages'].get('EN') == 2  # English + blank default
+        assert stats['languages'].get('DE') == 1
+        assert stats['undetectable'] == 1
+
+        by_ref = {
+            r['object_reference_raw']: r
+            for r in conn.execute(
+                'SELECT object_reference_raw, language_normalized, note_text, '
+                'note_text_normalized FROM engineering_note'
+            ).fetchall()
+        }
+        assert by_ref['CTRL-AIR-O1']['language_normalized'] == 'FR'
+        assert by_ref['TEMP-SENS-NORDIC']['language_normalized'] == 'EN'
+        assert by_ref['SENSOR-DE']['language_normalized'] == 'DE'
+        assert by_ref['BLANK-NOTE']['language_normalized'] == 'EN'
+
+        # Original note_text preserved
+        for row in conn.execute('SELECT id, note_text FROM engineering_note').fetchall():
+            assert row['note_text'] == raw_before[row['id']]
+
+        warnings = conn.execute(
+            "SELECT warning_type FROM warnings "
+            "WHERE source_table = 'engineering_note' AND warning_type = 'undetectable_language'"
+        ).fetchall()
+        assert len(warnings) == 1

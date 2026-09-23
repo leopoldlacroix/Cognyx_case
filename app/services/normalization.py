@@ -164,6 +164,105 @@ def normalize_with_aliases(raw_value: Optional[str], field_type: str,
         return normalize_whitespace(raw_value)
 
 
+def detect_language(text: str) -> str:
+    """Detect language of engineering note text.
+
+    Heuristic-based: French (accents, common words), German (typical chars/words),
+    default to English. Empty/blank text defaults to EN (caller may emit a soft warning).
+    """
+    if not text or not str(text).strip():
+        return 'EN'
+
+    text_upper = text.upper()
+
+    # French indicators: accented characters, common French words
+    french_chars = set('ÉÈÊËÀÂÎÏÔÛÙÇ')
+    french_words = {
+        'LE', 'LA', 'LES', 'UN', 'UNE', 'DES', 'DU', 'DE', 'ET', 'OU',
+        'EST', 'SON', 'SES', 'DANS', 'SUR', 'POUR', 'AVEC', 'SANS',
+        'NOTRE', 'CE', 'CETTE', 'CEST', 'IL', 'ELLE',
+        'VOUS', 'NOUS',
+    }
+
+    # German indicators (short ambiguous tokens like IN/AN alone are insufficient —
+    # german_score must be >= 2)
+    german_words = {
+        'DER', 'DIE', 'DAS', 'EIN', 'EINE', 'UND', 'ODER', 'MIT',
+        'FÜR', 'AUF', 'IN', 'IST', 'SIND', 'HABEN', 'KÖNNEN',
+        'MÜSSEN', 'SICH', 'AUS', 'AN', 'AB', 'NOCH', 'SCHON',
+        'AACHEN', 'DEUTSCHLAND', 'GERMAN',
+    }
+
+    has_french_char = any(c in french_chars for c in text_upper)
+    # Strip light punctuation so "Export." does not block word matching
+    text_words = {w.strip('.,;:!?\"\'()') for w in text_upper.split()} - {''}
+
+    french_score = len(text_words & french_words)
+    german_score = len(text_words & german_words)
+
+    if has_french_char and french_score >= german_score:
+        return 'FR'
+    # Accent-free French (e.g. notes without diacritics but with FR function words)
+    if french_score >= 2 and french_score > german_score:
+        return 'FR'
+    if german_score > french_score and german_score >= 2:
+        return 'DE'
+    return 'EN'
+
+
+def normalize_engineering_notes(conn: sqlite3.Connection) -> Dict[str, Any]:
+    """Normalize engineering notes: detect language, clean text.
+
+    For each engineering_note row:
+    - Detect language from note_text
+    - Populate language_normalized
+    - Normalize text (whitespace collapse; punctuation trim in a later pass)
+    - Populate note_text_normalized
+    - Preserve original note_text unchanged
+    - Soft-warn when language is undetectable (empty/blank note text → default EN)
+    """
+    from app.services.ingestion import add_warning
+
+    stats = {'processed': 0, 'languages': {}, 'undetectable': 0}
+
+    for row in conn.execute(
+        'SELECT id, note_text FROM engineering_note WHERE note_text IS NOT NULL'
+    ).fetchall():
+        stats['processed'] += 1
+        text = row['note_text']
+        note_id = row['id']
+
+        # Empty/blank → EN with soft warning (undetectable language)
+        if not text or not str(text).strip():
+            lang = 'EN'
+            stats['undetectable'] += 1
+            add_warning(
+                conn,
+                'engineering_note',
+                note_id,
+                'undetectable_language',
+                'Note text empty/blank; language_normalized defaulted to EN',
+            )
+        else:
+            lang = detect_language(text)
+
+        conn.execute(
+            'UPDATE engineering_note SET language_normalized = ? WHERE id = ?',
+            (lang, note_id),
+        )
+        stats['languages'][lang] = stats['languages'].get(lang, 0) + 1
+
+        # Normalize text: whitespace collapse (raw note_text left unchanged)
+        normalized_text = normalize_whitespace(text)
+        conn.execute(
+            'UPDATE engineering_note SET note_text_normalized = ? WHERE id = ?',
+            (normalized_text, note_id),
+        )
+
+    conn.commit()
+    return stats
+
+
 def normalize_erp_materials(conn: sqlite3.Connection, config: Optional[Dict] = None) -> Dict[str, Any]:
     """Normalize ERP material supplier references and UOM values (NORM-05).
 

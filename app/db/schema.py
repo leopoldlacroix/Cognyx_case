@@ -220,12 +220,18 @@ def create_schema(conn: sqlite3.Connection) -> None:
             object_reference_raw TEXT NOT NULL,
             object_type TEXT NOT NULL,
             language TEXT,
+            language_normalized TEXT,
             author TEXT,
             date TEXT,
             note_text TEXT NOT NULL,
+            note_text_normalized TEXT,
             FOREIGN KEY (source_file_id) REFERENCES source_file(id)
         )
     """)
+
+    # Existing DBs created before note normalization columns: add if absent
+    _ensure_column(conn, 'engineering_note', 'language_normalized', 'TEXT')
+    _ensure_column(conn, 'engineering_note', 'note_text_normalized', 'TEXT')
 
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_engineering_note_object_ref
