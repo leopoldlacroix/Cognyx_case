@@ -2,24 +2,23 @@
 gsd_state_version: "1.0"
 milestone: v1
 milestone_name: "Requirements: 32 total"
-current_phase: 02
-status: executing
-last_updated: "2026-09-23T11:21:25.753Z"
-state_head: 6100c12c776e4a120cefb9401f7add7e0ec67887
+current_phase: 03
+status: phase_2_complete
+last_updated: "2026-09-23T16:40:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 9
-  completed_plans: 5
-  percent: 0
-current_phase_name: Entity Resolution & Reconciliation Engine
+  completed_phases: 2
+  total_plans: 10
+  completed_plans: 10
+  percent: 40
+current_phase_name: Human Review Workflow + Core Analysis
 ---
 
 # State: Cognyx BOM Reuse Explorer (PoC)
 
 **Updated:** 2026-09-23
-**Current Phase:** 02
-**Next Phase:** Phase 2 — Entity Resolution & Reconciliation Engine
+**Current Phase:** 03 (not started)
+**Next Phase:** Phase 3 — Human Review Workflow + Core Analysis
 **Mode:** MVP (vertical slices)
 **Granularity:** Standard
 
@@ -36,7 +35,7 @@ current_phase_name: Entity Resolution & Reconciliation Engine
 | State tracking | ✅ Created — `.planning/STATE.md` |
 | Source data | ✅ Present — 6 CSV files in `data/inputs/` |
 | Ground truth | ✅ Present — `data/ground_truth/` (validation only, not client-facing) |
-| Codebase | ✅ Phase 1 complete — ingestion + normalization pipeline working |
+| Codebase | ✅ Phase 2 complete — ingest, normalize, extract source entities, reconciliation proposals |
 | Web UI | ❌ Not in PoC scope — CLI + report output for demo |
 
 ---
@@ -53,6 +52,15 @@ current_phase_name: Entity Resolution & Reconciliation Engine
   - NORM-04: Reference aliases (CTRL-AIR01 → CTRL-AIR-01)
   - SCEN-C: Typo/alias reconciliation verified
 
+- **Phase 2: Entity Resolution & Reconciliation Engine** ✅ COMPLETE (2026-09-23)
+  - NORM-05: ERP supplier mapping + UOM standardization
+  - NORM-06 / SCEN-H: FR/EN/DE language detection; raw note text preserved
+  - RECON-04: reconciliation tables + source_assembly_variant + source extraction
+  - RECON-01 / SCEN-B: identity on shared normalized_reference (CTRL-AIR-01 alias cluster). MAT-10001 is not an identity match under current alias evidence
+  - RECON-02 / SCEN-D: functional similarity surfaced, not merged
+  - RECON-03 / SCEN-E: Nordic-only components recorded as variant-specific
+  - Tests: 110 passed
+
 - **PROJECT.md** — Full project definition
 - **REQUIREMENTS.md** — 31 v1 requirements
 - **config.json** — Workflow preferences
@@ -64,7 +72,6 @@ current_phase_name: Entity Resolution & Reconciliation Engine
 
 ## What Is Not Done
 
-- **Phase 2 execution** — Normalize ERP materials + engineering notes, entity resolution, functional similarity, variant-specific detection, reconciliation records
 - **Phase 3 execution** — Human review interface, filterable pending reconciliations, canonical propagation, core analysis reports
 - **Phase 4 execution** — Assembly-level overlap metrics, variant drill-down, blocker evidence trails
 - **Phase 5 execution** — Explainability for all analysis results, full SCEN-G/H/I/J deepening
@@ -75,18 +82,19 @@ current_phase_name: Entity Resolution & Reconciliation Engine
 
 ## Phase 1 Summary
 
-**Status:** Executing Phase 02
+**Status:** Phase 2 complete
 **Date:** 2026-09-23  
-**Plans executed:** 5/5 (01-01 through 01-05)  
-**Tests passing:** 68/68  
+**Plans executed:** 10/10 (01-01 through 01-05, 02-01 through 02-05)  
+**Tests passing:** 110/110  
 **Real data:** 309 rows ingested, 1 quarantined, 508 soft warnings, aliases applied
 
 ---
 
 ## Phase 2: Entity Resolution & Reconciliation Engine
 
-**Status:** Not started  
-**Plans needed:** 4-5 plans covering NORM-05, NORM-06, RECON-01 through RECON-04, SCEN-B, SCEN-D, SCEN-E, SCEN-H
+**Status:** Complete (2026-09-23)  
+**Plans executed:** 02-01 through 02-05  
+**Tests:** 110 passed
 
 ### Requirements to cover
 
@@ -133,15 +141,15 @@ Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
 - NORM-02 — UOM aliases ✅
 - NORM-03 — Supplier name aliases ✅
 - NORM-04 — Reference aliases ✅
-- NORM-05 — Normalize ERP materials ⬜ (Phase 2)
-- NORM-06 — Normalize engineering notes ⬜ (Phase 2)
+- NORM-05 — Normalize ERP materials ✅ (Phase 2)
+- NORM-06 — Normalize engineering notes ✅ (Phase 2)
 
 ### Reconciliation (4)
 
-- RECON-01 — Identity/alias detection ⬜ (Phase 2)
-- RECON-02 — Functional similarity detection ⬜ (Phase 2)
-- RECON-03 — Variant-specific difference detection ⬜ (Phase 2)
-- RECON-04 — Complete reconciliation record schema ⬜ (Phase 2)
+- RECON-01 — Identity/alias detection ✅ (Phase 2)
+- RECON-02 — Functional similarity detection ✅ (Phase 2)
+- RECON-03 — Variant-specific difference detection ✅ (Phase 2)
+- RECON-04 — Complete reconciliation record schema ✅ (Phase 2)
 
 ### Review Workflow (3)
 
@@ -160,13 +168,13 @@ Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
 ### Scenario Coverage (10)
 
 - SCEN-A — Obvious cross-variant reuse ⬜ (Phase 3)
-- SCEN-B — Hidden cross-source reuse ⬜ (Phase 2)
+- SCEN-B — Hidden cross-source reuse ✅ (Phase 2) — CTRL-AIR-01 alias cluster; MAT-10001 is not an identity match under current alias evidence
 - SCEN-C — Typo/alias reconciliation ✅ (Phase 1)
-- SCEN-D — Similar-but-not-identical ⬜ (Phase 2)
-- SCEN-E — Variant-specific intentional differences ⬜ (Phase 2)
+- SCEN-D — Similar-but-not-identical ✅ (Phase 2)
+- SCEN-E — Variant-specific intentional differences ✅ (Phase 2)
 - SCEN-F — Potential reuse requiring review ⬜ (Phase 3)
 - SCEN-G — Conflicting evidence ⬜ (Phase 3)
-- SCEN-H — Multilingual evidence ⬜ (Phase 2)
+- SCEN-H — Multilingual evidence ✅ (Phase 2) — FR/EN/DE detection and normalized text; original note_text kept
 - SCEN-I — Data-quality issues ⬜ (Phase 3)
 - SCEN-J — Lifecycle mismatch ⬜ (Phase 3)
 
@@ -178,7 +186,7 @@ Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
 |----------|-----------|--------|
 | Layered pipeline with human-in-the-loop | AI proposes, humans decide — auditable, trust-building | Validated in Phase 1 |
 | Three relationship types kept separate | Prevents collapsing identity/alias, functional similarity, variant-specific into single "match" | Validated in Phase 1 |
-| Reconciliation as reviewable relationship, not silent overwrite | Provenance-bearing: source system, raw ID, canonical ID, status, match method, confidence, rationale, evidence | Pending Phase 2 |
+| Reconciliation as reviewable relationship, not silent overwrite | Provenance-bearing: source system, raw ID, canonical ID, status, match method, confidence, rationale, evidence | Validated in Phase 2 |
 | SQLite for PoC | Simple, file-based, sufficient for dataset scale | Validated in Phase 1 |
 | Python as sole implementation language | Matches existing codebase, broadens contributor pool | Validated in Phase 1 |
 
@@ -199,7 +207,7 @@ Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
 1. ✅ Execute Phase 1 — ingest + normalize all 6 CSV files
 2. ✅ Validate Phase 1 success criteria against the data
 3. Create Phase 2 plans — entity resolution + reconciliation engine
-4. Execute Phase 2
+4. ✅ Execute Phase 2
 5. Continue through Phases 3–5
 6. Validate all 10 scenarios A–J are demonstrable
 7. Prepare demo: email to deon@cognyx.io and francois@cognyx.io, in-person meeting with Bruno Maréchal and Thomas Lindqvist
@@ -207,4 +215,4 @@ Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
 ---
 
 *State updated: 2026-09-23*
-*Phase 1 complete. Next: Phase 2 — Entity Resolution & Reconciliation Engine.*
+*Phase 2 complete. Next: Phase 3 — Human Review Workflow + Core Analysis.*

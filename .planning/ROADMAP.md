@@ -67,6 +67,8 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 ## Phase 2: Entity Resolution & Reconciliation Engine
 
+**Status:** Complete (2026-09-23). Plans 02-01 through 02-05 executed. 110 tests passing.
+
 **Goal:** Source entities are extracted and deduplicated. The reconciliation engine proposes candidate mappings — identity/alias matches, functional similarity candidates, and variant-specific exclusions — each with confidence scores, match methods, rationale, and evidence. Multilingual engineering notes are ingested and available as reconciliation context (SCEN-H). No silent merges; all proposals are reviewable.
 
 **Scope:** Source entity extraction layer + reconciliation worker (architectural layers 3.3 and 3.4). Note: ERP material normalization (NORM-05) and engineering note normalization (NORM-06) are included here because they are prerequisites for entity extraction and reconciliation context respectively — they produce the normalized ERP/note data that the reconciliation engine consumes.
@@ -94,16 +96,16 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| NORM-05 | Phase 2 | Pending |
-| NORM-06 | Phase 2 | Pending |
-| RECON-01 | Phase 2 | Pending |
-| RECON-02 | Phase 2 | Pending |
-| RECON-03 | Phase 2 | Pending |
-| RECON-04 | Phase 2 | Pending |
-| SCEN-B | Phase 2 | Pending |
-| SCEN-D | Phase 2 | Pending |
-| SCEN-E | Phase 2 | Pending |
-| SCEN-H | Phase 2 | Pending |
+| NORM-05 | Phase 2 | Complete |
+| NORM-06 | Phase 2 | Complete |
+| RECON-01 | Phase 2 | Complete |
+| RECON-02 | Phase 2 | Complete |
+| RECON-03 | Phase 2 | Complete |
+| RECON-04 | Phase 2 | Complete |
+| SCEN-B | Phase 2 | Complete |
+| SCEN-D | Phase 2 | Complete |
+| SCEN-E | Phase 2 | Complete |
+| SCEN-H | Phase 2 | Complete |
 
 ---
 
