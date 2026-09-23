@@ -46,6 +46,14 @@ _ENTITY_CONFIG = {
     },
 }
 
+# Display confidence bands (inclusive edges where stated). Importable by reports.
+CONFIDENCE_BANDS = {
+    "strong": (0.90, None),       # >= 0.90
+    "likely": (0.75, 0.89),       # 0.75–0.89
+    "uncertain": (0.50, 0.74),    # 0.50–0.74
+    "weak": (None, 0.50),         # < 0.50
+}
+
 
 def _parse_evidence(evidence_json: Optional[str]) -> Dict[str, Any]:
     if not evidence_json:
@@ -287,3 +295,120 @@ def decide_reconciliation(
         f"SELECT * FROM {table} WHERE id = ?", (reconciliation_id,)
     ).fetchone()
     return _row_to_dict(updated)
+
+
+def list_reconciliations(
+    conn: sqlite3.Connection,
+    entity_type: str,
+    status: Optional[str] = None,
+    confidence_band: Optional[str] = None,
+    method: Optional[str] = None,
+    source_system: Optional[str] = None,
+    relationship: Optional[str] = None,
+) -> Dict[str, Any]:
+    """List reconciliation proposals with optional filters.
+
+    Joins the entity reconciliation table to its source table so
+    source_system / references are available. relationship and
+    review_needed come from evidence_json via json_extract.
+    """
+    if entity_type not in _ENTITY_CONFIG:
+        raise ValueError(f"Unsupported entity_type: {entity_type!r}")
+    if confidence_band is not None and confidence_band not in CONFIDENCE_BANDS:
+        raise ValueError(f"Unknown confidence_band: {confidence_band!r}")
+
+    cfg = _ENTITY_CONFIG[entity_type]
+    table = cfg["table"]
+    source_table = cfg["source_table"]
+    source_fk = cfg["source_fk"]
+    canonical_col = cfg["canonical_col"]
+
+    clauses: List[str] = []
+    params: List[Any] = []
+
+    if status is not None:
+        clauses.append("r.status = ?")
+        params.append(status)
+
+    if method is not None:
+        clauses.append("r.method = ?")
+        params.append(method)
+
+    if source_system is not None:
+        clauses.append("s.source_system = ?")
+        params.append(source_system)
+
+    if relationship is not None:
+        clauses.append(
+            "json_extract(r.evidence_json, '$.relationship') = ?"
+        )
+        params.append(relationship)
+
+    if confidence_band is not None:
+        lo, hi = CONFIDENCE_BANDS[confidence_band]
+        if confidence_band == "strong":
+            clauses.append("r.confidence >= ?")
+            params.append(lo)
+        elif confidence_band == "weak":
+            clauses.append("r.confidence < ?")
+            params.append(hi)
+        else:
+            clauses.append("r.confidence >= ? AND r.confidence <= ?")
+            params.extend([lo, hi])
+
+    where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    sql = f"""
+        SELECT
+            r.id AS id,
+            r.{source_fk} AS source_id,
+            s.source_system AS source_system,
+            s.source_reference AS source_reference,
+            s.normalized_reference AS normalized_reference,
+            r.status AS status,
+            r.method AS method,
+            r.confidence AS confidence,
+            json_extract(r.evidence_json, '$.relationship') AS relationship,
+            json_extract(r.evidence_json, '$.review_needed') AS review_needed,
+            r.rationale AS rationale,
+            r.{canonical_col} AS canonical_id
+        FROM {table} AS r
+        JOIN {source_table} AS s ON s.id = r.{source_fk}
+        {where_sql}
+        ORDER BY r.confidence DESC, r.id ASC
+    """
+
+    raw_rows = conn.execute(sql, params).fetchall()
+    rows: List[Dict[str, Any]] = []
+    for raw in raw_rows:
+        review_needed = raw["review_needed"]
+        # json_extract returns 0/1 for JSON booleans; normalize to Python bool.
+        # Missing key yields NULL → keep as None.
+        if review_needed is not None:
+            if isinstance(review_needed, (int, float)):
+                review_needed = bool(review_needed)
+            elif isinstance(review_needed, str):
+                lowered = review_needed.lower()
+                if lowered in ("true", "1"):
+                    review_needed = True
+                elif lowered in ("false", "0"):
+                    review_needed = False
+
+        rows.append(
+            {
+                "id": raw["id"],
+                "source_id": raw["source_id"],
+                "source_system": raw["source_system"],
+                "source_reference": raw["source_reference"],
+                "normalized_reference": raw["normalized_reference"],
+                "status": raw["status"],
+                "method": raw["method"],
+                "confidence": raw["confidence"],
+                "relationship": raw["relationship"],
+                "review_needed": review_needed,
+                "rationale": raw["rationale"],
+                "canonical_id": raw["canonical_id"],
+            }
+        )
+
+    return {"rows": rows, "count": len(rows)}
