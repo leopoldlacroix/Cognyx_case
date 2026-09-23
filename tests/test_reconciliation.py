@@ -521,6 +521,189 @@ def test_functional_similarity_idempotent(conn):
 
 
 # ---------------------------------------------------------------------------
+# Task 2.5.2 — variant-specific differences (SCEN-E)
+# ---------------------------------------------------------------------------
+
+
+def _seed_nordic_fixture(conn):
+    """Nordic-only HVAC-NORDIC vs shared CTRL-SHARED across REGIO-NORDIC / REGIO-STD."""
+    sf = conn.execute(
+        "INSERT INTO source_file (source_system, file_name, file_hash, ingested_at) "
+        "VALUES (?, ?, ?, ?)",
+        ("PLM", "fixture.csv", "hash-nordic", _now()),
+    ).lastrowid
+
+    conn.execute(
+        "INSERT INTO plm_variant ("
+        "source_file_id, source_row, variant_ref_raw, variant_name_raw, "
+        "variant_ref_normalized"
+        ") VALUES (?, ?, ?, ?, ?)",
+        (sf, 1, "REGIO-NORDIC", "Regio Nordic Climate", "REGIO-NORDIC"),
+    )
+    conn.execute(
+        "INSERT INTO plm_variant ("
+        "source_file_id, source_row, variant_ref_raw, variant_name_raw, "
+        "variant_ref_normalized"
+        ") VALUES (?, ?, ?, ?, ?)",
+        (sf, 2, "REGIO-STD", "Regio Standard", "REGIO-STD"),
+    )
+
+    asm_id = conn.execute(
+        "INSERT INTO source_assembly ("
+        "source_system, source_reference, normalized_reference, description, "
+        "source_record_type, source_record_id, created_at"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("PLM", "ASM-NORDIC", "ASM-NORDIC", "Nordic ASM", "ASSEMBLY_MASTER", 1, _now()),
+    ).lastrowid
+    conn.execute(
+        "INSERT INTO source_assembly_variant "
+        "(source_assembly_id, variant_ref_normalized, created_at) VALUES (?, ?, ?)",
+        (asm_id, "REGIO-NORDIC", _now()),
+    )
+    # Also link standard variant so both exist in junction for realism
+    asm_std = conn.execute(
+        "INSERT INTO source_assembly ("
+        "source_system, source_reference, normalized_reference, description, "
+        "source_record_type, source_record_id, created_at"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("PLM", "ASM-STD", "ASM-STD", "Std ASM", "ASSEMBLY_MASTER", 2, _now()),
+    ).lastrowid
+    conn.execute(
+        "INSERT INTO source_assembly_variant "
+        "(source_assembly_id, variant_ref_normalized, created_at) VALUES (?, ?, ?)",
+        (asm_std, "REGIO-STD", _now()),
+    )
+
+    # Nordic-only component on REGIO-NORDIC
+    conn.execute(
+        "INSERT INTO plm_bom_line ("
+        "source_file_id, source_row, variant_ref_raw, assembly_ref_raw, "
+        "component_ref_raw, variant_ref_normalized, component_ref_normalized"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            sf, 1, "REGIO-NORDIC", "ASM-NORDIC", "HVAC-NORDIC",
+            "REGIO-NORDIC", "HVAC-NORDIC",
+        ),
+    )
+    # Shared component on both variants
+    conn.execute(
+        "INSERT INTO plm_bom_line ("
+        "source_file_id, source_row, variant_ref_raw, assembly_ref_raw, "
+        "component_ref_raw, variant_ref_normalized, component_ref_normalized"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            sf, 2, "REGIO-NORDIC", "ASM-NORDIC", "CTRL-SHARED",
+            "REGIO-NORDIC", "CTRL-SHARED",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO plm_bom_line ("
+        "source_file_id, source_row, variant_ref_raw, assembly_ref_raw, "
+        "component_ref_raw, variant_ref_normalized, component_ref_normalized"
+        ") VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            sf, 3, "REGIO-STD", "ASM-STD", "CTRL-SHARED",
+            "REGIO-STD", "CTRL-SHARED",
+        ),
+    )
+
+    nordic_comp = _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="HVAC-NORDIC",
+        normalized_reference="HVAC-NORDIC",
+        description="Nordic HVAC",
+    )
+    shared_comp = _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-SHARED",
+        normalized_reference="CTRL-SHARED",
+        description="Shared ctrl",
+    )
+    # Pair that would look similar to HVAC-NORDIC under prefix heuristic
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="HVAC-NORDIC-ALT",
+        normalized_reference="HVAC-NORDIC-ALT",
+        description="Would-be similar",
+    )
+    conn.commit()
+    return nordic_comp, shared_comp
+
+
+def test_variant_specific_nordic_components(conn):
+    """SCEN-E: Nordic-only components flagged as variant_specific, not merge."""
+    from app.services.reconciliation import (
+        detect_functional_similarity,
+        detect_variant_specific_differences,
+    )
+
+    nordic_comp, shared_comp = _seed_nordic_fixture(conn)
+
+    records = detect_variant_specific_differences(conn)
+    refs = {r["component_ref"] for r in records}
+    assert "HVAC-NORDIC" in refs
+    assert "CTRL-SHARED" not in refs
+
+    for rec in records:
+        if rec["component_ref"] == "HVAC-NORDIC":
+            assert rec["relationship"] == "variant_specific"
+            assert rec["status"] == "PENDING"
+            assert rec["method"] == "STRUCTURED"
+            assert rec["confidence"] == pytest.approx(0.95)
+            assert rec["review_needed"] is False
+
+    rows = conn.execute(
+        """
+        SELECT * FROM component_reconciliation
+        WHERE source_component_id = ?
+        """,
+        (nordic_comp,),
+    ).fetchall()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["status"] == "PENDING"
+    assert row["method"] == "STRUCTURED"
+    assert row["confidence"] == pytest.approx(0.95)
+    assert "variant_specific" in row["evidence_json"]
+    assert '"review_needed":false' in row["evidence_json"]
+
+    # Shared component must not get a variant_specific row
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM component_reconciliation "
+            "WHERE source_component_id = ?",
+            (shared_comp,),
+        ).fetchone()["c"]
+        == 0
+    )
+
+    # Nordic-only refs excluded from functional similarity pairing
+    sim = detect_functional_similarity(conn)
+    for cand in sim:
+        pair = {cand["reference_a"], cand["reference_b"]}
+        assert "HVAC-NORDIC" not in pair
+
+
+def test_variant_specific_idempotent(conn):
+    from app.services.reconciliation import detect_variant_specific_differences
+
+    _seed_nordic_fixture(conn)
+    detect_variant_specific_differences(conn)
+    first = conn.execute(
+        "SELECT COUNT(*) AS c FROM component_reconciliation"
+    ).fetchone()["c"]
+    detect_variant_specific_differences(conn)
+    second = conn.execute(
+        "SELECT COUNT(*) AS c FROM component_reconciliation"
+    ).fetchone()["c"]
+    assert first >= 1
+    assert second == first
+
+
+# ---------------------------------------------------------------------------
 # Task 2.4.3 — orchestrator
 # ---------------------------------------------------------------------------
 

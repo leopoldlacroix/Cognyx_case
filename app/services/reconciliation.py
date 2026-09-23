@@ -383,6 +383,152 @@ def _same_prefix_different_suffix(ref_a: str, ref_b: str) -> Optional[Dict[str, 
     return None
 
 
+def _nordic_variant_refs(conn: sqlite3.Connection) -> set:
+    """Nordic variant refs from plm_variant that also appear in source_assembly_variant."""
+    nordic_variants = conn.execute(
+        """
+        SELECT variant_ref_normalized
+        FROM plm_variant
+        WHERE (
+            LOWER(COALESCE(variant_name_raw, '')) LIKE '%nordic%'
+            OR LOWER(COALESCE(variant_ref_normalized, '')) LIKE '%nordic%'
+        )
+          AND variant_ref_normalized IS NOT NULL
+          AND variant_ref_normalized != ''
+        """
+    ).fetchall()
+    nordic_from_plm = {v["variant_ref_normalized"] for v in nordic_variants}
+    if not nordic_from_plm:
+        return set()
+
+    linked = conn.execute(
+        """
+        SELECT DISTINCT variant_ref_normalized
+        FROM source_assembly_variant
+        WHERE variant_ref_normalized IS NOT NULL
+          AND variant_ref_normalized != ''
+        """
+    ).fetchall()
+    linked_refs = {r["variant_ref_normalized"] for r in linked}
+    return nordic_from_plm & linked_refs
+
+
+def _nordic_only_component_refs(
+    conn: sqlite3.Connection,
+    nordic_refs: Optional[set] = None,
+) -> set:
+    """Component refs used only on Nordic variants (not on any other variant)."""
+    if nordic_refs is None:
+        nordic_refs = _nordic_variant_refs(conn)
+    if not nordic_refs:
+        return set()
+
+    placeholders = ",".join("?" * len(nordic_refs))
+    nordic_list = list(nordic_refs)
+
+    rows = conn.execute(
+        f"""
+        SELECT DISTINCT component_ref_normalized
+        FROM plm_bom_line
+        WHERE component_ref_normalized IS NOT NULL
+          AND component_ref_normalized != ''
+          AND variant_ref_normalized IN ({placeholders})
+          AND component_ref_normalized NOT IN (
+              SELECT component_ref_normalized
+              FROM plm_bom_line
+              WHERE component_ref_normalized IS NOT NULL
+                AND component_ref_normalized != ''
+                AND (
+                    variant_ref_normalized IS NULL
+                    OR variant_ref_normalized NOT IN ({placeholders})
+                )
+          )
+        """,
+        nordic_list + nordic_list,
+    ).fetchall()
+    return {r["component_ref_normalized"] for r in rows}
+
+
+def detect_variant_specific_differences(
+    conn: sqlite3.Connection,
+    reconciliation_run_id: Optional[int] = None,
+) -> List[Dict]:
+    """Detect components used only by Nordic climate variants.
+
+    Intentional specialization — not merge/identity candidates.
+    Uses source_assembly_variant to confirm Nordic variant linkage, then
+    finds plm_bom_line components exclusive to those variants.
+    """
+    nordic_refs = _nordic_variant_refs(conn)
+    if not nordic_refs:
+        return []
+
+    nordic_only = _nordic_only_component_refs(conn, nordic_refs)
+    if not nordic_only:
+        return []
+
+    variant_ref = sorted(nordic_refs)[0]
+
+    # Representative source_component id per normalized ref (if present)
+    id_by_ref: Dict[str, int] = {}
+    for row in conn.execute(
+        """
+        SELECT id, normalized_reference
+        FROM source_component
+        WHERE normalized_reference IS NOT NULL
+          AND normalized_reference != ''
+        ORDER BY id
+        """
+    ).fetchall():
+        ref = row["normalized_reference"]
+        if ref not in id_by_ref:
+            id_by_ref[ref] = row["id"]
+
+    records: List[Dict] = []
+    rationale = (
+        "Component used exclusively by Nordic climate variant — "
+        "intentional specialization, not a merge candidate"
+    )
+
+    for comp_ref in sorted(nordic_only):
+        source_id = id_by_ref.get(comp_ref)
+        evidence = {
+            "relationship": "variant_specific",
+            "review_needed": False,
+            "component_ref": comp_ref,
+            "variant_ref": variant_ref,
+            "nordic_variant_refs": sorted(nordic_refs),
+        }
+        if source_id is not None:
+            record_reconciliation(
+                conn,
+                entity_type="component",
+                source_entity_id=source_id,
+                status="PENDING",
+                method="STRUCTURED",
+                confidence=0.95,
+                rationale=rationale,
+                evidence=evidence,
+                reconciliation_run_id=reconciliation_run_id,
+            )
+        records.append(
+            {
+                "component_ref": comp_ref,
+                "relationship": "variant_specific",
+                "confidence": 0.95,
+                "method": "STRUCTURED",
+                "status": "PENDING",
+                "variant_ref": variant_ref,
+                "rationale": rationale,
+                "review_needed": False,
+                "source_component_id": source_id,
+            }
+        )
+
+    conn.commit()
+    return records
+
+
 def detect_functional_similarity(
     conn: sqlite3.Connection,
     config: Optional[Dict] = None,
@@ -394,13 +540,15 @@ def detect_functional_similarity(
     Same-prefix / different-suffix heuristic on distinct normalized_reference
     values. Persists STRUCTURED / 0.50 / PENDING rows with
     relationship=functional_similarity and review_needed=true in evidence.
-    These are NOT identity matches.
+    These are NOT identity matches. Nordic-only (variant-specific) refs are
+    excluded so intentional specialization is not proposed as interchangeable.
     """
     if config is None:
         config = load_normalization_config()
     _ = config  # reserved for future threshold/config knobs
 
-    excluded = exclude_refs or set()
+    excluded = set(exclude_refs) if exclude_refs else set()
+    excluded |= _nordic_only_component_refs(conn)
 
     refs = conn.execute(
         """
