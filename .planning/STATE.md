@@ -2,23 +2,23 @@
 gsd_state_version: "1.0"
 milestone: v1
 milestone_name: "Requirements: 32 total"
-current_phase: 04
-status: phase_3_complete
-last_updated: "2026-09-23T18:00:00.000Z"
+current_phase: 05
+status: phase_4_complete
+last_updated: "2026-09-23T20:49:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 15
-  completed_plans: 15
-  percent: 60
-current_phase_name: Cross-Variant Reuse Analysis — Deep Reports
+  completed_phases: 4
+  total_plans: 24
+  completed_plans: 19
+  percent: 79
+current_phase_name: Explainability, Edge Cases & Final Scenario Coverage
 ---
 
 # State: Cognyx BOM Reuse Explorer (PoC)
 
 **Updated:** 2026-09-23
-**Current Phase:** 03 complete
-**Next Phase:** Phase 4 — Cross-Variant Reuse Analysis — Deep Reports
+**Current Phase:** 04 complete
+**Next Phase:** Phase 5 — Explainability, Edge Cases & Final Scenario Coverage
 **Mode:** MVP (vertical slices)
 **Granularity:** Standard
 
@@ -35,7 +35,7 @@ current_phase_name: Cross-Variant Reuse Analysis — Deep Reports
 | State tracking | ✅ Created — `.planning/STATE.md` |
 | Source data | ✅ Present — 6 CSV files in `data/inputs/` |
 | Ground truth | ✅ Present — `data/ground_truth/` (validation only, not client-facing) |
-| Codebase | ✅ Phase 3 complete — review decisions, canonical BOM, reuse/blocker/quality reports, CLI |
+| Codebase | ✅ Phase 4 complete — assembly overlap, blocker trail, data-quality records, compare.html |
 | Web UI | ❌ Not in PoC scope — CLI + report output for demo |
 
 ---
@@ -82,7 +82,12 @@ current_phase_name: Cross-Variant Reuse Analysis — Deep Reports
   - ANALYSIS-04 / SCEN-I: `data_quality_issues` for invalid quantity, duplicate BOM keys, UOM aliases, mapping-noise warning summary
   - CLI `review` and `analyze` write JSON under `data/processed/`; one-page report sections read those functions
   - Tests: 180 passed
-- **Phase 4 execution** — Assembly-level overlap metrics, variant drill-down, compare page
+- **Phase 4: Cross-Variant Reuse Analysis — Deep Reports** ✅ COMPLETE (2026-09-23)
+  - ANALYSIS-01: `compare_variants` / `all_variant_pairs`; overlap is shared canonical ids over their union; high overlap at ≥ 0.5
+  - ANALYSIS-03: every `blockers()` source carries `source_file` and `source_row`; both values stay
+  - ANALYSIS-04: `data_quality_issues` records, per-file warning counts, duplicate references, conflicting facts, unresolved identity count, alias summary
+  - `compare.html` opens on REGIO-STD vs REGIO-NORDIC; `analyze compare` writes `compare.json`
+  - Tests: 201 passed
 - **Phase 5 execution** — Explainability for all analysis results, full SCEN-G/H/I/J deepening
 - **Scenario validation** — Verify all 10 scenarios A–J are demonstrable end-to-end
 - **Demo preparation** — 1 email + 1 in-person meeting (1h)
@@ -91,10 +96,10 @@ current_phase_name: Cross-Variant Reuse Analysis — Deep Reports
 
 ## Phase 1 Summary
 
-**Status:** Phase 3 complete
+**Status:** Phase 4 complete
 **Date:** 2026-09-23  
-**Plans executed:** 15/15 (01-01 through 01-05, 02-01 through 02-05, 03-01 through 03-05)  
-**Tests passing:** 180/180  
+**Plans executed:** 19/24 (01-01 through 04-04)  
+**Tests passing:** 201/201  
 **Real data:** 309 rows ingested, 1 quarantined, 508 soft warnings, aliases applied
 
 ---
@@ -138,9 +143,18 @@ current_phase_name: Cross-Variant Reuse Analysis — Deep Reports
 
 ---
 
-## Current Phase: Phase 3 (Complete)
+## Current Phase: Phase 4 (Complete)
 
-Phase 3 execution completed 2026-09-23. All 5 plans executed. Wave 1 was 03-01. Wave 2 ran 03-02 and 03-03 together. 03-04 followed 03-03. 03-05 followed 03-02 and 03-04.
+Phase 4 execution completed 2026-09-23. All 4 plans executed. Wave 1 ran 04-01 and 04-02 together. 04-03 followed 04-02. 04-04 followed 04-01, 04-02, and 04-03.
+
+### Phase 4 Plans — COMPLETED
+
+| Plan | Status | Commits |
+|------|--------|---------|
+| 04-01: Assembly overlap | ✅ | `cd5ca29` test, `4c2107b` feat |
+| 04-02: Blocker source trail | ✅ | `ab1b405` test, `5936433` feat |
+| 04-03: Data-quality records | ✅ | `383cf7e` test, `ecef159` feat |
+| 04-04: Compare page | ✅ | `d6fe666` feat, `6a577ed` feat |
 
 ### Phase 1 Plans — COMPLETED
 
@@ -186,10 +200,10 @@ Phase 3 execution completed 2026-09-23. All 5 plans executed. Wave 1 was 03-01. 
 
 ### Cross-Variant Reuse Analysis (5)
 
-- ANALYSIS-01 — "Already reused" report ✅ (Phase 3; Phase 4 deepens)
-- ANALYSIS-02 — "Reusable candidates" report ✅ (Phase 3; Phase 4 deepens)
-- ANALYSIS-03 — "Blockers" report ✅ (Phase 3; Phase 4 deepens)
-- ANALYSIS-04 — "Data-quality issues" report ✅ (Phase 3; Phase 4 deepens)
+- ANALYSIS-01 — "Already reused" report ✅ (Phase 3; deepened in Phase 4)
+- ANALYSIS-02 — "Reusable candidates" report ✅ (Phase 3; deepened in Phase 4)
+- ANALYSIS-03 — "Blockers" report ✅ (Phase 3; deepened in Phase 4)
+- ANALYSIS-04 — "Data-quality issues" report ✅ (Phase 3; deepened in Phase 4)
 - ANALYSIS-05 — Explainability for all results ✅ initial (Phase 3); deepen in Phase 5
 
 ### Scenario Coverage (10)
@@ -218,6 +232,8 @@ Phase 3 execution completed 2026-09-23. All 5 plans executed. Wave 1 was 03-01. 
 | Python as sole implementation language | Matches existing codebase, broadens contributor pool | Validated in Phase 1 |
 | Canonical BOM from accepted identity plus singletons | Pending or rejected identity stays out of `bom_relationship`; no identity row is a singleton, so obvious reuse is visible before every line is reviewed | Validated in Phase 3 |
 | Similarity and variant-specific decisions do not share a component id | Functional similarity stays two entities; Nordic parts stay their own canonical component | Validated in Phase 3 |
+| Overlap ratio uses canonical ids on `bom_relationship` only | Pending or rejected identity stays unresolved and out of the ratio; a blocked shared part still counts as shared | Validated in Phase 4 |
+| Trail is file name plus source row | Blockers and data-quality issues name `source_file.file_name` and `source_row`; both conflict values stay | Validated in Phase 4 |
 
 ---
 
@@ -238,11 +254,12 @@ Phase 3 execution completed 2026-09-23. All 5 plans executed. Wave 1 was 03-01. 
 3. Create Phase 2 plans — entity resolution + reconciliation engine
 4. ✅ Execute Phase 2
 5. ✅ Execute Phase 3
-6. Continue through Phases 4–5
-7. Validate all 10 scenarios A–J are demonstrable
-8. Prepare demo: email to deon@cognyx.io and francois@cognyx.io, in-person meeting with Bruno Maréchal and Thomas Lindqvist
+6. ✅ Execute Phase 4
+7. Continue through Phase 5
+8. Validate all 10 scenarios A–J are demonstrable
+9. Prepare demo: email to deon@cognyx.io and francois@cognyx.io, in-person meeting with Bruno Maréchal and Thomas Lindqvist
 
 ---
 
 *State updated: 2026-09-23*
-*Phase 3 complete. Next: Phase 4 — Cross-Variant Reuse Analysis — Deep Reports.*
+*Phase 4 complete. Next: Phase 5 — Explainability, Edge Cases & Final Scenario Coverage.*

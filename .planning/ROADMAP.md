@@ -158,6 +158,8 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 ## Phase 4: Cross-Variant Reuse Analysis — Deep Reports
 
+**Status:** Complete (2026-09-23). Plans 04-01 through 04-04 executed. 201 tests passing. `compare.html` opens on REGIO-STD vs REGIO-NORDIC. `analyze compare` writes `compare.json`.
+
 **Goal:** Analysis layer outputs are enriched with assembly-level overlap metrics, variant-vs-variant comparison drill-downs, component coverage matrices, and structured reuse category assignments (reused / reuse candidate / blocked / unresolved). This phase deepens the analysis from Phase 3's report generation into a usable cross-variant comparison workbench. All analysis is derived from the accepted canonical model + sourced technical facts.
 
 **Scope:** Analysis layer deep outputs (architectural layer 3.6 full scope). This phase does not add new requirements — it realizes the full depth of ANALYSIS-01 through ANALYSIS-05 that Phase 3 established, plus the assembly-level metrics defined in the architecture. The check page for this phase is `data/processed/compare.html`: pick two variants, see shared assemblies and parts. Same static HTML shell as the earlier pages, no web framework.
@@ -182,10 +184,10 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANALYSIS-01 | Phase 4 | Pending (deepen) |
-| ANALYSIS-02 | Phase 4 | Pending (deepen) |
-| ANALYSIS-03 | Phase 4 | Pending (deepen) |
-| ANALYSIS-04 | Phase 4 | Pending (deepen) |
+| ANALYSIS-01 | Phase 4 | Complete (deepen) |
+| ANALYSIS-02 | Phase 4 | Complete (deepen) |
+| ANALYSIS-03 | Phase 4 | Complete (deepen) |
+| ANALYSIS-04 | Phase 4 | Complete (deepen) |
 
 > **Note:** ANALYSIS-01 through ANALYSIS-04 are initially covered in Phase 3 (report generation exists). Phase 4 deepens them to full assembly-level metrics and drill-down. The traceability reflects Phase 4 as the phase where the full depth is realized.
 
