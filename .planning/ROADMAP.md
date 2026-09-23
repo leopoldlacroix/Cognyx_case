@@ -111,7 +111,7 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 ## Phase 3: Human Review Workflow + Core Analysis
 
-**Status:** Planned (2026-09-23). Not executed. Plans adjusted for Phase 1–2 outcomes: CLI not web UI, canonical tables still missing, proposals are PENDING, `MAT-10001` is not an identity link, assembly reconciliation is empty, BOM component descriptions were not ingested.
+**Status:** Complete (2026-09-23). Plans 03-01 through 03-05 executed. 180 tests passing. CLI review and analyze commands write JSON under `data/processed/`. Canonical BOM is built from accepted identity plus singletons. `MAT-10001` is not an identity link.
 
 **Goal:** Human operators can review reconciliation proposals (accept/reject/redirect with rationale), filtered and navigable by confidence, match method, and source system. Accepted reconciliations propagate to the canonical model; rejected ones are recorded. Core analysis reports — already reused, reusable candidates, blockers, data-quality issues — are generated from the canonical model with explainability. Obvious reuse scenarios (A), potential reuse requiring review (F), conflicting evidence (G), data-quality issues (I), and lifecycle mismatches (J) are surfaced.
 
@@ -140,19 +140,19 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REVIEW-01 | Phase 3 | Pending |
-| REVIEW-02 | Phase 3 | Pending |
-| REVIEW-03 | Phase 3 | Pending |
-| ANALYSIS-01 | Phase 3 | Pending |
-| ANALYSIS-02 | Phase 3 | Pending |
-| ANALYSIS-03 | Phase 3 | Pending |
-| ANALYSIS-04 | Phase 3 | Pending |
-| ANALYSIS-05 | Phase 3 | Pending |
-| SCEN-A | Phase 3 | Pending |
-| SCEN-F | Phase 3 | Pending |
-| SCEN-G | Phase 3 | Pending |
-| SCEN-I | Phase 3 | Pending |
-| SCEN-J | Phase 3 | Pending |
+| REVIEW-01 | Phase 3 | Complete |
+| REVIEW-02 | Phase 3 | Complete |
+| REVIEW-03 | Phase 3 | Complete |
+| ANALYSIS-01 | Phase 3 | Complete |
+| ANALYSIS-02 | Phase 3 | Complete |
+| ANALYSIS-03 | Phase 3 | Complete |
+| ANALYSIS-04 | Phase 3 | Complete |
+| ANALYSIS-05 | Phase 3 | Complete |
+| SCEN-A | Phase 3 | Complete |
+| SCEN-F | Phase 3 | Complete |
+| SCEN-G | Phase 3 | Complete |
+| SCEN-I | Phase 3 | Complete |
+| SCEN-J | Phase 3 | Complete |
 
 ---
 
@@ -160,7 +160,7 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 **Goal:** Analysis layer outputs are enriched with assembly-level overlap metrics, variant-vs-variant comparison drill-downs, component coverage matrices, and structured reuse category assignments (reused / reuse candidate / blocked / unresolved). This phase deepens the analysis from Phase 3's report generation into a usable cross-variant comparison workbench. All analysis is derived from the accepted canonical model + sourced technical facts.
 
-**Scope:** Analysis layer deep outputs (architectural layer 3.6 full scope). This phase does not add new requirements — it realizes the full depth of ANALYSIS-01 through ANALYSIS-05 that Phase 3 established, plus the assembly-level metrics defined in the architecture.
+**Scope:** Analysis layer deep outputs (architectural layer 3.6 full scope). This phase does not add new requirements — it realizes the full depth of ANALYSIS-01 through ANALYSIS-05 that Phase 3 established, plus the assembly-level metrics defined in the architecture. The check page for this phase is `data/processed/compare.html`: pick two variants, see shared assemblies and parts. Same static HTML shell as the earlier pages, no web framework.
 
 ### Plans
 
@@ -195,7 +195,7 @@ Phases are **derived from requirements**, not imposed. Each requirement maps to 
 
 **Goal:** Every analysis result carries explainability. Conflicting evidence (SCEN-G), multilingual evidence (SCEN-H), data-quality issues (SCEN-I), and lifecycle mismatches (SCEN-J) are fully realized with complete evidence trails and edge-case handling. This phase finalizes the scenario coverage and ensures the demo can show all 10 scenarios A–J.
 
-**Scope:** Analysis explainability + edge-case hardening (architectural layer 3.6 final scope). This phase completes what Phase 3 established and Phase 4 deepened.
+**Scope:** Analysis explainability + edge-case hardening (architectural layer 3.6 final scope). This phase completes what Phase 3 established and Phase 4 deepened. The check page is `data/processed/evidence.html`: each conflict, language, data-quality issue, and lifecycle mismatch shows both values and the source row. Same static HTML shell. An interactive workbench stays a later version.
 
 ### Plans
 

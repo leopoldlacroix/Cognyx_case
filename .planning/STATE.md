@@ -2,23 +2,23 @@
 gsd_state_version: "1.0"
 milestone: v1
 milestone_name: "Requirements: 32 total"
-current_phase: 03
-status: phase_2_complete
-last_updated: "2026-09-23T16:40:00.000Z"
+current_phase: 04
+status: phase_3_complete
+last_updated: "2026-09-23T18:00:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 10
-  percent: 40
-current_phase_name: Human Review Workflow + Core Analysis
+  completed_phases: 3
+  total_plans: 15
+  completed_plans: 15
+  percent: 60
+current_phase_name: Cross-Variant Reuse Analysis — Deep Reports
 ---
 
 # State: Cognyx BOM Reuse Explorer (PoC)
 
 **Updated:** 2026-09-23
-**Current Phase:** 03 (planned, not executed)
-**Next Phase:** Phase 3 — Human Review Workflow + Core Analysis
+**Current Phase:** 03 complete
+**Next Phase:** Phase 4 — Cross-Variant Reuse Analysis — Deep Reports
 **Mode:** MVP (vertical slices)
 **Granularity:** Standard
 
@@ -35,7 +35,7 @@ current_phase_name: Human Review Workflow + Core Analysis
 | State tracking | ✅ Created — `.planning/STATE.md` |
 | Source data | ✅ Present — 6 CSV files in `data/inputs/` |
 | Ground truth | ✅ Present — `data/ground_truth/` (validation only, not client-facing) |
-| Codebase | ✅ Phase 2 complete — ingest, normalize, extract source entities, reconciliation proposals |
+| Codebase | ✅ Phase 3 complete — review decisions, canonical BOM, reuse/blocker/quality reports, CLI |
 | Web UI | ❌ Not in PoC scope — CLI + report output for demo |
 
 ---
@@ -72,8 +72,17 @@ current_phase_name: Human Review Workflow + Core Analysis
 
 ## What Is Not Done
 
-- **Phase 3 execution** — Plans written 2026-09-23 (`03-01` through `03-05`). Not started. CLI review + canonical BOM + four reports. See `.planning/phases/03-human-review-workflow-core-analysis/03-CONTEXT.md` for Phase 1–2 corrections (no web UI, no `MAT-10001` identity, empty assembly reconciliation, BOM descriptions not ingested).
-- **Phase 4 execution** — Assembly-level overlap metrics, variant drill-down, blocker evidence trails
+- **Phase 3: Human Review Workflow + Core Analysis** ✅ COMPLETE (2026-09-23)
+  - REVIEW-01: `decide_reconciliation` accept / reject / redirect; canonical tables created
+  - REVIEW-02: `list_reconciliations` filters by status, confidence band, method, source system, relationship
+  - REVIEW-03: `build_canonical_model` from accepted identity plus singletons; pending/rejected identity stays unresolved
+  - ANALYSIS-01 / SCEN-A: `already_reused` from `bom_relationship`
+  - ANALYSIS-02 / SCEN-F: `reusable_candidates` (functional similarity + rugged camera pair, not merged)
+  - ANALYSIS-03 / SCEN-G / SCEN-J: `blockers` keeps both voltages and separates Prototype vs Released from ERP obsolete
+  - ANALYSIS-04 / SCEN-I: `data_quality_issues` for invalid quantity, duplicate BOM keys, UOM aliases, mapping-noise warning summary
+  - CLI `review` and `analyze` write JSON under `data/processed/`; one-page report sections read those functions
+  - Tests: 180 passed
+- **Phase 4 execution** — Assembly-level overlap metrics, variant drill-down, compare page
 - **Phase 5 execution** — Explainability for all analysis results, full SCEN-G/H/I/J deepening
 - **Scenario validation** — Verify all 10 scenarios A–J are demonstrable end-to-end
 - **Demo preparation** — 1 email + 1 in-person meeting (1h)
@@ -82,10 +91,10 @@ current_phase_name: Human Review Workflow + Core Analysis
 
 ## Phase 1 Summary
 
-**Status:** Phase 2 complete
+**Status:** Phase 3 complete
 **Date:** 2026-09-23  
-**Plans executed:** 10/10 (01-01 through 01-05, 02-01 through 02-05)  
-**Tests passing:** 110/110  
+**Plans executed:** 15/15 (01-01 through 01-05, 02-01 through 02-05, 03-01 through 03-05)  
+**Tests passing:** 180/180  
 **Real data:** 309 rows ingested, 1 quarantined, 508 soft warnings, aliases applied
 
 ---
@@ -111,9 +120,27 @@ current_phase_name: Human Review Workflow + Core Analysis
 
 ---
 
-## Current Phase: Phase 1 (Complete)
+## Phase 3: Human Review Workflow + Core Analysis
 
-Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
+**Status:** Complete (2026-09-23)  
+**Plans executed:** 03-01 through 03-05  
+**Tests:** 180 passed
+
+### Phase 3 Plans — COMPLETED
+
+| Plan | Status | Commits |
+|------|--------|---------|
+| 03-01: Review decisions | ✅ | `0fd5998` test, `8cf4cdb` feat |
+| 03-02: Filterable queue | ✅ | `f536fe8` test, `d2c61ca` feat |
+| 03-03: Canonical BOM | ✅ | `7faa2ec` test, `3839a33` feat |
+| 03-04: Reuse reports | ✅ | `7674b66` test, `c28e47d` feat |
+| 03-05: Blockers, quality, CLI | ✅ | `102358e` test, `d644426` feat |
+
+---
+
+## Current Phase: Phase 3 (Complete)
+
+Phase 3 execution completed 2026-09-23. All 5 plans executed. Wave 1 was 03-01. Wave 2 ran 03-02 and 03-03 together. 03-04 followed 03-03. 03-05 followed 03-02 and 03-04.
 
 ### Phase 1 Plans — COMPLETED
 
@@ -153,30 +180,30 @@ Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
 
 ### Review Workflow (3)
 
-- REVIEW-01 — Human review interface ⬜ (Phase 3)
-- REVIEW-02 — Filterable pending reconciliations ⬜ (Phase 3)
-- REVIEW-03 — Accepted → canonical, rejected → recorded ⬜ (Phase 3)
+- REVIEW-01 — Human review interface ✅ (Phase 3)
+- REVIEW-02 — Filterable pending reconciliations ✅ (Phase 3)
+- REVIEW-03 — Accepted → canonical, rejected → recorded ✅ (Phase 3)
 
 ### Cross-Variant Reuse Analysis (5)
 
-- ANALYSIS-01 — "Already reused" report ⬜ (Phase 3)
-- ANALYSIS-02 — "Reusable candidates" report ⬜ (Phase 3)
-- ANALYSIS-03 — "Blockers" report ⬜ (Phase 3)
-- ANALYSIS-04 — "Data-quality issues" report ⬜ (Phase 3)
-- ANALYSIS-05 — Explainability for all results ⬜ (Phase 5)
+- ANALYSIS-01 — "Already reused" report ✅ (Phase 3; Phase 4 deepens)
+- ANALYSIS-02 — "Reusable candidates" report ✅ (Phase 3; Phase 4 deepens)
+- ANALYSIS-03 — "Blockers" report ✅ (Phase 3; Phase 4 deepens)
+- ANALYSIS-04 — "Data-quality issues" report ✅ (Phase 3; Phase 4 deepens)
+- ANALYSIS-05 — Explainability for all results ✅ initial (Phase 3); deepen in Phase 5
 
 ### Scenario Coverage (10)
 
-- SCEN-A — Obvious cross-variant reuse ⬜ (Phase 3)
+- SCEN-A — Obvious cross-variant reuse ✅ (Phase 3)
 - SCEN-B — Hidden cross-source reuse ✅ (Phase 2) — CTRL-AIR-01 alias cluster; MAT-10001 is not an identity match under current alias evidence
 - SCEN-C — Typo/alias reconciliation ✅ (Phase 1)
 - SCEN-D — Similar-but-not-identical ✅ (Phase 2)
 - SCEN-E — Variant-specific intentional differences ✅ (Phase 2)
-- SCEN-F — Potential reuse requiring review ⬜ (Phase 3)
-- SCEN-G — Conflicting evidence ⬜ (Phase 3)
+- SCEN-F — Potential reuse requiring review ✅ (Phase 3)
+- SCEN-G — Conflicting evidence ✅ (Phase 3; Phase 5 deepens)
 - SCEN-H — Multilingual evidence ✅ (Phase 2) — FR/EN/DE detection and normalized text; original note_text kept
-- SCEN-I — Data-quality issues ⬜ (Phase 3)
-- SCEN-J — Lifecycle mismatch ⬜ (Phase 3)
+- SCEN-I — Data-quality issues ✅ (Phase 3; Phase 5 deepens)
+- SCEN-J — Lifecycle mismatch ✅ (Phase 3; Phase 5 deepens)
 
 ---
 
@@ -189,6 +216,8 @@ Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
 | Reconciliation as reviewable relationship, not silent overwrite | Provenance-bearing: source system, raw ID, canonical ID, status, match method, confidence, rationale, evidence | Validated in Phase 2 |
 | SQLite for PoC | Simple, file-based, sufficient for dataset scale | Validated in Phase 1 |
 | Python as sole implementation language | Matches existing codebase, broadens contributor pool | Validated in Phase 1 |
+| Canonical BOM from accepted identity plus singletons | Pending or rejected identity stays out of `bom_relationship`; no identity row is a singleton, so obvious reuse is visible before every line is reviewed | Validated in Phase 3 |
+| Similarity and variant-specific decisions do not share a component id | Functional similarity stays two entities; Nordic parts stay their own canonical component | Validated in Phase 3 |
 
 ---
 
@@ -208,11 +237,12 @@ Phase 1 execution completed 2026-09-23. All 5 plans executed successfully.
 2. ✅ Validate Phase 1 success criteria against the data
 3. Create Phase 2 plans — entity resolution + reconciliation engine
 4. ✅ Execute Phase 2
-5. Continue through Phases 3–5
-6. Validate all 10 scenarios A–J are demonstrable
-7. Prepare demo: email to deon@cognyx.io and francois@cognyx.io, in-person meeting with Bruno Maréchal and Thomas Lindqvist
+5. ✅ Execute Phase 3
+6. Continue through Phases 4–5
+7. Validate all 10 scenarios A–J are demonstrable
+8. Prepare demo: email to deon@cognyx.io and francois@cognyx.io, in-person meeting with Bruno Maréchal and Thomas Lindqvist
 
 ---
 
 *State updated: 2026-09-23*
-*Phase 2 complete. Next: Phase 3 — Human Review Workflow + Core Analysis.*
+*Phase 3 complete. Next: Phase 4 — Cross-Variant Reuse Analysis — Deep Reports.*
