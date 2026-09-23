@@ -347,4 +347,146 @@ def create_schema(conn: sqlite3.Connection) -> None:
         )
     """)
 
+    # ============================================================
+    # RECONCILIATION RUN (batch execution traceability)
+    # ============================================================
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reconciliation_run (
+            id INTEGER PRIMARY KEY,
+            entity_type TEXT NOT NULL,
+            started_at DATETIME NOT NULL,
+            completed_at DATETIME,
+            status TEXT NOT NULL DEFAULT 'QUEUED',
+            items_processed INTEGER NOT NULL DEFAULT 0,
+            items_assessed INTEGER NOT NULL DEFAULT 0,
+            items_needing_review INTEGER NOT NULL DEFAULT 0,
+            error_count INTEGER NOT NULL DEFAULT 0,
+            created_by TEXT
+        )
+    """)
+
+    # ============================================================
+    # COMPONENT RECONCILIATION
+    # Deviation (Phase 2): component_id is nullable without FK to
+    # canonical `component` (created in Phase 3). FKs to
+    # source_component and reconciliation_run are enforced.
+    # Status: PENDING | ASSESSED | ACCEPTED | REJECTED
+    # Method: EXACT | NORMALIZED | STRUCTURED | SEMANTIC | LLM | MANUAL
+    # ============================================================
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS component_reconciliation (
+            id INTEGER PRIMARY KEY,
+            source_component_id INTEGER NOT NULL,
+            component_id INTEGER,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            method TEXT,
+            confidence REAL,
+            rationale TEXT,
+            evidence_json TEXT,
+            reconciliation_run_id INTEGER,
+            created_at DATETIME NOT NULL,
+            decided_at DATETIME,
+            decided_by TEXT,
+            FOREIGN KEY (source_component_id) REFERENCES source_component(id),
+            FOREIGN KEY (reconciliation_run_id) REFERENCES reconciliation_run(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_component_reconciliation_source
+        ON component_reconciliation(source_component_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_component_reconciliation_status
+        ON component_reconciliation(status)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_component_reconciliation_canonical
+        ON component_reconciliation(component_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_component_reconciliation_run
+        ON component_reconciliation(reconciliation_run_id)
+    """)
+
+    # ============================================================
+    # ASSEMBLY RECONCILIATION
+    # Deviation: assembly_id nullable without FK to canonical assembly.
+    # ============================================================
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS assembly_reconciliation (
+            id INTEGER PRIMARY KEY,
+            source_assembly_id INTEGER NOT NULL,
+            assembly_id INTEGER,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            method TEXT,
+            confidence REAL,
+            rationale TEXT,
+            evidence_json TEXT,
+            reconciliation_run_id INTEGER,
+            created_at DATETIME NOT NULL,
+            decided_at DATETIME,
+            decided_by TEXT,
+            FOREIGN KEY (source_assembly_id) REFERENCES source_assembly(id),
+            FOREIGN KEY (reconciliation_run_id) REFERENCES reconciliation_run(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_assembly_reconciliation_source
+        ON assembly_reconciliation(source_assembly_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_assembly_reconciliation_status
+        ON assembly_reconciliation(status)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_assembly_reconciliation_canonical
+        ON assembly_reconciliation(assembly_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_assembly_reconciliation_run
+        ON assembly_reconciliation(reconciliation_run_id)
+    """)
+
+    # ============================================================
+    # SUPPLIER RECONCILIATION
+    # Deviation: supplier_id nullable without FK to canonical supplier.
+    # ============================================================
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS supplier_reconciliation (
+            id INTEGER PRIMARY KEY,
+            source_supplier_id INTEGER NOT NULL,
+            supplier_id INTEGER,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            method TEXT,
+            confidence REAL,
+            rationale TEXT,
+            evidence_json TEXT,
+            reconciliation_run_id INTEGER,
+            created_at DATETIME NOT NULL,
+            decided_at DATETIME,
+            decided_by TEXT,
+            FOREIGN KEY (source_supplier_id) REFERENCES source_supplier(id),
+            FOREIGN KEY (reconciliation_run_id) REFERENCES reconciliation_run(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_supplier_reconciliation_source
+        ON supplier_reconciliation(source_supplier_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_supplier_reconciliation_status
+        ON supplier_reconciliation(status)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_supplier_reconciliation_canonical
+        ON supplier_reconciliation(supplier_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_supplier_reconciliation_run
+        ON supplier_reconciliation(reconciliation_run_id)
+    """)
+
     conn.commit()

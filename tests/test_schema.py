@@ -71,3 +71,107 @@ def test_low_priority_junction_tables_not_created(conn):
     }
     assert "note_entity_reference" not in tables
     assert "material_supplier" not in tables
+
+
+_RECON_SHARED_COLS = {
+    "id",
+    "status",
+    "method",
+    "confidence",
+    "rationale",
+    "evidence_json",
+    "reconciliation_run_id",
+    "created_at",
+    "decided_at",
+    "decided_by",
+}
+
+
+def test_reconciliation_run_table(conn):
+    """reconciliation_run matches blueprint §3.7."""
+    columns = _table_columns(conn, "reconciliation_run")
+    assert columns == {
+        "id",
+        "entity_type",
+        "started_at",
+        "completed_at",
+        "status",
+        "items_processed",
+        "items_assessed",
+        "items_needing_review",
+        "error_count",
+        "created_by",
+    }
+
+
+def test_component_reconciliation_table(conn):
+    """component_reconciliation matches blueprint §3.6 (no FK to missing canonical)."""
+    columns = _table_columns(conn, "component_reconciliation")
+    assert columns == _RECON_SHARED_COLS | {"source_component_id", "component_id"}
+
+    indexes = _index_names(conn, "component_reconciliation")
+    assert "idx_component_reconciliation_source" in indexes
+    assert "idx_component_reconciliation_status" in indexes
+    assert "idx_component_reconciliation_canonical" in indexes
+    assert "idx_component_reconciliation_run" in indexes
+
+    # confidence is REAL — insert and round-trip a float
+    now = "2026-01-01T00:00:00Z"
+    conn.execute(
+        "INSERT INTO source_component "
+        "(source_system, source_reference, normalized_reference, description, "
+        "source_record_type, source_record_id, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("PLM", "C-1", "C-1", "x", "BOM_LINE", 1, now),
+    )
+    conn.execute(
+        "INSERT INTO component_reconciliation "
+        "(source_component_id, component_id, status, method, confidence, "
+        "created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (1, None, "PENDING", "NORMALIZED", 0.95, now),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT status, method, confidence, component_id FROM component_reconciliation WHERE id = 1"
+    ).fetchone()
+    assert row["status"] == "PENDING"
+    assert row["method"] == "NORMALIZED"
+    assert row["confidence"] == pytest.approx(0.95)
+    assert row["component_id"] is None
+
+
+def test_assembly_reconciliation_table(conn):
+    """assembly_reconciliation has source/canonical FKs columns and indexes."""
+    columns = _table_columns(conn, "assembly_reconciliation")
+    assert columns == _RECON_SHARED_COLS | {"source_assembly_id", "assembly_id"}
+
+    indexes = _index_names(conn, "assembly_reconciliation")
+    assert "idx_assembly_reconciliation_source" in indexes
+    assert "idx_assembly_reconciliation_status" in indexes
+    assert "idx_assembly_reconciliation_canonical" in indexes
+    assert "idx_assembly_reconciliation_run" in indexes
+
+
+def test_supplier_reconciliation_table(conn):
+    """supplier_reconciliation has source/canonical FKs columns and indexes."""
+    columns = _table_columns(conn, "supplier_reconciliation")
+    assert columns == _RECON_SHARED_COLS | {"source_supplier_id", "supplier_id"}
+
+    indexes = _index_names(conn, "supplier_reconciliation")
+    assert "idx_supplier_reconciliation_source" in indexes
+    assert "idx_supplier_reconciliation_status" in indexes
+    assert "idx_supplier_reconciliation_canonical" in indexes
+    assert "idx_supplier_reconciliation_run" in indexes
+
+
+def test_canonical_tables_not_yet_created(conn):
+    """Phase 3 canonical tables are absent; reconciliation omits FKs to them."""
+    tables = {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    assert "component" not in tables
+    assert "assembly" not in tables
+    assert "supplier" not in tables
