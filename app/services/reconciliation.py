@@ -341,6 +341,160 @@ def _complete_reconciliation_run(
     conn.commit()
 
 
+def _same_prefix_different_suffix(ref_a: str, ref_b: str) -> Optional[Dict[str, str]]:
+    """Return similarity detail if refs share a family but differ in one segment.
+
+    Primary (plan): first two hyphen parts equal, last part differs
+    (e.g. CTRL-DOOR-01 vs CTRL-DOOR-EXP).
+
+    Secondary (SCEN-D example): last two parts equal, first part differs
+    (e.g. STANDARD-DOOR-CTRL vs EXPORT-DOOR-CTRL).
+    """
+    if ref_a == ref_b:
+        return None
+
+    parts_a = ref_a.split("-")
+    parts_b = ref_b.split("-")
+
+    if len(parts_a) >= 2 and len(parts_b) >= 2:
+        prefix_a = "-".join(parts_a[:2])
+        prefix_b = "-".join(parts_b[:2])
+        if prefix_a == prefix_b and parts_a[-1] != parts_b[-1]:
+            return {
+                "similarity_type": "same_prefix_different_suffix",
+                "similarity_detail": (
+                    f"Prefix '{prefix_a}' matches, suffixes differ: "
+                    f"'{parts_a[-1]}' vs '{parts_b[-1]}'"
+                ),
+            }
+
+    if len(parts_a) >= 3 and len(parts_b) >= 3:
+        suffix_a = "-".join(parts_a[-2:])
+        suffix_b = "-".join(parts_b[-2:])
+        if suffix_a == suffix_b and parts_a[0] != parts_b[0]:
+            return {
+                "similarity_type": "same_suffix_different_prefix",
+                "similarity_detail": (
+                    f"Suffix '{suffix_a}' matches, prefixes differ: "
+                    f"'{parts_a[0]}' vs '{parts_b[0]}'"
+                ),
+            }
+
+    return None
+
+
+def detect_functional_similarity(
+    conn: sqlite3.Connection,
+    config: Optional[Dict] = None,
+    reconciliation_run_id: Optional[int] = None,
+    exclude_refs: Optional[set] = None,
+) -> List[Dict]:
+    """Detect functionally similar but non-identical components.
+
+    Same-prefix / different-suffix heuristic on distinct normalized_reference
+    values. Persists STRUCTURED / 0.50 / PENDING rows with
+    relationship=functional_similarity and review_needed=true in evidence.
+    These are NOT identity matches.
+    """
+    if config is None:
+        config = load_normalization_config()
+    _ = config  # reserved for future threshold/config knobs
+
+    excluded = exclude_refs or set()
+
+    refs = conn.execute(
+        """
+        SELECT DISTINCT normalized_reference
+        FROM source_component
+        WHERE normalized_reference IS NOT NULL
+          AND normalized_reference != ''
+        ORDER BY normalized_reference
+        """
+    ).fetchall()
+
+    ref_list = [
+        r["normalized_reference"]
+        for r in refs
+        if r["normalized_reference"] not in excluded
+    ]
+
+    # One representative source_component id per normalized_reference
+    id_by_ref: Dict[str, int] = {}
+    for row in conn.execute(
+        """
+        SELECT id, normalized_reference
+        FROM source_component
+        WHERE normalized_reference IS NOT NULL
+          AND normalized_reference != ''
+        ORDER BY id
+        """
+    ).fetchall():
+        ref = row["normalized_reference"]
+        if ref not in id_by_ref:
+            id_by_ref[ref] = row["id"]
+
+    candidates: List[Dict] = []
+
+    for i, ref_a in enumerate(ref_list):
+        for ref_b in ref_list[i + 1 :]:
+            detail = _same_prefix_different_suffix(ref_a, ref_b)
+            if detail is None:
+                continue
+
+            source_a = id_by_ref.get(ref_a)
+            source_b = id_by_ref.get(ref_b)
+            if source_a is None or source_b is None:
+                continue
+
+            rationale = (
+                "Similar component family but different variants — "
+                "requires human review to determine if interchangeable"
+            )
+
+            for source_id, self_ref, other_ref in (
+                (source_a, ref_a, ref_b),
+                (source_b, ref_b, ref_a),
+            ):
+                evidence = {
+                    "relationship": "functional_similarity",
+                    "review_needed": True,
+                    "reference_a": ref_a,
+                    "reference_b": ref_b,
+                    "self_reference": self_ref,
+                    "other_reference": other_ref,
+                    "similarity_type": detail["similarity_type"],
+                    "similarity_detail": detail["similarity_detail"],
+                }
+                record_reconciliation(
+                    conn,
+                    entity_type="component",
+                    source_entity_id=source_id,
+                    status="PENDING",
+                    method="STRUCTURED",
+                    confidence=0.50,
+                    rationale=rationale,
+                    evidence=evidence,
+                    reconciliation_run_id=reconciliation_run_id,
+                )
+
+            candidate = {
+                "reference_a": ref_a,
+                "reference_b": ref_b,
+                "similarity_type": detail["similarity_type"],
+                "similarity_detail": detail["similarity_detail"],
+                "relationship": "functional_similarity",
+                "confidence": 0.50,
+                "method": "STRUCTURED",
+                "status": "PENDING",
+                "rationale": rationale,
+                "review_needed": True,
+            }
+            candidates.append(candidate)
+
+    conn.commit()
+    return candidates
+
+
 def run_entity_resolution(
     conn: sqlite3.Connection,
     config: Optional[Dict] = None,

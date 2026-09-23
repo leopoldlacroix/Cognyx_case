@@ -378,8 +378,152 @@ def test_supplier_detection_queries_source_supplier_only(conn):
 
 
 # ---------------------------------------------------------------------------
+# Task 2.5.1 — functional similarity (SCEN-D)
+# ---------------------------------------------------------------------------
+
+
+def test_functional_similarity_door_controllers(conn):
+    """SCEN-D: STANDARD-DOOR-CTRL vs EXPORT-DOOR-CTRL similar, not identity."""
+    from app.services.reconciliation import (
+        detect_component_identities,
+        detect_functional_similarity,
+    )
+
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="STANDARD-DOOR-CTRL",
+        normalized_reference="STANDARD-DOOR-CTRL",
+    )
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="EXPORT-DOOR-CTRL",
+        normalized_reference="EXPORT-DOOR-CTRL",
+    )
+
+    candidates = detect_functional_similarity(conn)
+    assert len(candidates) == 1
+    cand = candidates[0]
+    refs = {cand["reference_a"], cand["reference_b"]}
+    assert refs == {"STANDARD-DOOR-CTRL", "EXPORT-DOOR-CTRL"}
+    assert cand["relationship"] == "functional_similarity"
+    assert cand["method"] == "STRUCTURED"
+    assert cand["confidence"] == pytest.approx(0.50)
+    assert cand["status"] == "PENDING"
+    assert cand["review_needed"] is True
+
+    rows = conn.execute(
+        "SELECT * FROM component_reconciliation ORDER BY source_component_id"
+    ).fetchall()
+    assert len(rows) == 2
+    for row in rows:
+        assert row["status"] == "PENDING"
+        assert row["method"] == "STRUCTURED"
+        assert row["confidence"] == pytest.approx(0.50)
+        assert "functional_similarity" in row["evidence_json"]
+        assert "review_needed" in row["evidence_json"]
+        # Must NOT be identity
+        assert row["method"] != "NORMALIZED"
+        assert "identity" not in row["evidence_json"] or (
+            '"relationship":"functional_similarity"' in row["evidence_json"]
+        )
+
+    # Identity detector must not equate the two distinct normalized refs
+    detect_component_identities(conn)
+    identity_rows = conn.execute(
+        """
+        SELECT * FROM component_reconciliation
+        WHERE method IN ('EXACT', 'NORMALIZED')
+        """
+    ).fetchall()
+    assert len(identity_rows) == 0
+
+
+def test_functional_similarity_same_prefix_ctrl_door(conn):
+    """Primary heuristic: CTRL-DOOR-01 vs CTRL-DOOR-EXP."""
+    from app.services.reconciliation import detect_functional_similarity
+
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-DOOR-01",
+        normalized_reference="CTRL-DOOR-01",
+    )
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-DOOR-EXP",
+        normalized_reference="CTRL-DOOR-EXP",
+    )
+
+    candidates = detect_functional_similarity(conn)
+    assert len(candidates) == 1
+    assert candidates[0]["similarity_type"] == "same_prefix_different_suffix"
+    assert candidates[0]["confidence"] == pytest.approx(0.50)
+    assert candidates[0]["method"] == "STRUCTURED"
+
+
+def test_functional_similarity_skips_identical_normalized_ref(conn):
+    """Shared normalized_reference is identity territory, not similarity."""
+    from app.services.reconciliation import detect_functional_similarity
+
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-AIR-01",
+        normalized_reference="CTRL-AIR-01",
+    )
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-AIR01",
+        normalized_reference="CTRL-AIR-01",
+    )
+
+    candidates = detect_functional_similarity(conn)
+    assert candidates == []
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM component_reconciliation"
+        ).fetchone()["c"]
+        == 0
+    )
+
+
+def test_functional_similarity_idempotent(conn):
+    from app.services.reconciliation import detect_functional_similarity
+
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="STANDARD-DOOR-CTRL",
+        normalized_reference="STANDARD-DOOR-CTRL",
+    )
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="EXPORT-DOOR-CTRL",
+        normalized_reference="EXPORT-DOOR-CTRL",
+    )
+
+    detect_functional_similarity(conn)
+    first = conn.execute(
+        "SELECT COUNT(*) AS c FROM component_reconciliation"
+    ).fetchone()["c"]
+    assert first == 2
+
+    detect_functional_similarity(conn)
+    second = conn.execute(
+        "SELECT COUNT(*) AS c FROM component_reconciliation"
+    ).fetchone()["c"]
+    assert second == first
+
+
+# ---------------------------------------------------------------------------
 # Task 2.4.3 — orchestrator
 # ---------------------------------------------------------------------------
+
 
 
 def test_run_entity_resolution_creates_runs_and_records(conn):
