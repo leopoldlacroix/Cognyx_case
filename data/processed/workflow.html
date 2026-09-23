@@ -14,6 +14,7 @@
       background: #f7f6f3;
       line-height: 1.45;
     }
+    body.proposals-page { max-width: 1100px; }
     h1 { font-size: 1.7rem; font-weight: 650; margin: 0.6rem 0 0.4rem; }
     h2 { font-size: 1.05rem; margin: 0; }
     p { margin: 0.3rem 0; }
@@ -60,6 +61,17 @@
     }
     footer { margin-top: 2.5rem; color: #78716c; font-size: 0.85rem; }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+    form.decide { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0; }
+    form.decide input[type="text"] {
+      font: inherit; font-size: 0.85rem; padding: 0.2rem 0.4rem;
+      border: 1px solid #e7e5e4; border-radius: 6px; width: 9.5rem;
+    }
+    button {
+      font: inherit; font-size: 0.82rem; padding: 0.2rem 0.55rem;
+      border-radius: 6px; border: 1px solid #d6d3d1; background: #fff; cursor: pointer;
+    }
+    button.accept { background: #ecfccb; border-color: #65a30d; }
+    button.reject { background: #fee2e2; border-color: #dc2626; }
     article {
       background: #fff; border: 1px solid #e7e5e4;
       border-left: 4px solid #44403c;
@@ -78,19 +90,19 @@
   <nav><a href="workflow.html" class="active">Workflow</a><a href="normalize.html">1 · Normalize</a><a href="proposals.html">2 · Proposals</a><a href="canonical.html">3 · Canonical</a><a href="compare.html">4 · Compare</a><a href="report.html">Preview · Reuse</a></nav>
   
   <h1>How the pipeline fits together</h1>
-  <p class="lede">What is already in the database, what this preview report is doing, and what a later version still needs. Use this page while you talk. Open Normalize and Proposals to check the rows.</p>
-  <ol class="flow"><li><div class="step-head"><h2>1. Ingest</h2><span class="badge done">Done</span></div><p>6 source files, 137 BOM lines, raw values kept.</p></li><li><div class="step-head"><h2>2. Validate</h2><span class="badge done">Done</span></div><p>1 row quarantined. Soft warnings exist, many of them from column-name noise.</p></li><li><div class="step-head"><h2>3. Normalize</h2><span class="badge done">Done</span></div><p>Aliases, units, and supplier names are cleaned beside the raw value. See the Normalize page.</p></li><li><div class="step-head"><h2>4. Source entities</h2><span class="badge done">Done</span></div><p>133 components, 37 assemblies, 24 suppliers.</p></li><li><div class="step-head"><h2>5. Reconciliation proposals</h2><span class="badge done">Done</span></div><p>57 component proposals. 57 are still pending. No one has accepted or rejected them. See the Proposals page.</p></li><li><div class="step-head"><h2>6. Human decision</h2><span class="badge missing">Not yet</span></div><p>Accept, reject, or redirect a proposal. This is Phase 3. The decision is stored. It does not overwrite the source row.</p></li><li><div class="step-head"><h2>7. Canonical model</h2><span class="badge done">Done</span></div><p>85 canonical component rows exist.</p></li><li><div class="step-head"><h2>8. Reuse snapshot</h2><span class="badge preview">Preview</span></div><p>The Reuse page is a preview from normalized references and notes. It is not yet computed from an accepted canonical BOM.</p></li><li><div class="step-head"><h2>9. Compare and explain</h2><span class="badge later">Later</span></div><p>Phase 4 adds variant-versus-variant and assembly overlap. Phase 5 puts a plain explanation on every row and finishes the edge cases.</p></li><li><div class="step-head"><h2>10. Interactive workbench</h2><span class="badge later">Later version</span></div><p>Filters, clicking a row, and deciding on screen. Not part of this PoC. It needs the canonical model first.</p></li></ol>
+  <p class="lede">What is already in the database, and where a person decides. Open Proposals to accept, reject, or redirect. Start the site with <code>python -m app.backend.cli serve</code> so those buttons save.</p>
+  <ol class="flow"><li><div class="step-head"><h2>1. Ingest</h2><span class="badge done">Done</span></div><p>6 source files, 137 BOM lines, raw values kept.</p></li><li><div class="step-head"><h2>2. Validate</h2><span class="badge done">Done</span></div><p>1 row quarantined. Soft warnings exist, many of them from column-name noise.</p></li><li><div class="step-head"><h2>3. Normalize</h2><span class="badge done">Done</span></div><p>Aliases, units, and supplier names are cleaned beside the raw value. See the Normalize page.</p></li><li><div class="step-head"><h2>4. Source entities</h2><span class="badge done">Done</span></div><p>133 components, 37 assemblies, 24 suppliers.</p></li><li><div class="step-head"><h2>5. Reconciliation proposals</h2><span class="badge done">Done</span></div><p>57 component proposals. 57 are still pending. Accept or reject them on the Proposals page.</p></li><li><div class="step-head"><h2>6. Human decision</h2><span class="badge preview">On Proposals</span></div><p>Accept, reject, or redirect on the Proposals page. Start it with python -m app.backend.cli serve so the buttons can save. The decision is stored. It does not overwrite the source row.</p></li><li><div class="step-head"><h2>7. Canonical model</h2><span class="badge done">Done</span></div><p>85 canonical component rows exist.</p></li><li><div class="step-head"><h2>8. Reuse snapshot</h2><span class="badge done">Done</span></div><p>The Reuse page lists parts already shared, parts worth a look, Nordic-only parts, blockers, and data issues.</p></li><li><div class="step-head"><h2>9. Compare</h2><span class="badge done">Done</span></div><p>The Compare page opens on Standard versus Nordic. Each assembly shows shared parts, one-sided parts, and the spreadsheet row. Phase 5 adds a plain explanation on every row.</p></li><li><div class="step-head"><h2>10. Interactive workbench</h2><span class="badge later">Later version</span></div><p>Filters and a fuller review screen. Accept, reject, and redirect are already on the Proposals page.</p></li></ol>
   <section>
     <h2>What to say</h2>
     <div class="note">
       <p><strong>Accomplished.</strong> Messy PLM, ERP, and engineering notes are ingested, cleaned, and turned into reviewable proposals. Identity, similarity, and Nordic-only parts stay separate.</p>
-      <p><strong>Missing.</strong> A canonical model, and a human decision that fills it. Until then, “already reused” means “same normalized reference,” not “an engineer accepted the match.”</p>
-      <p><strong>Later.</strong> Comparison across variants, fuller explanations, then a screen where someone can filter and decide. Not required to show the pilot story.</p>
+      <p><strong>Decide.</strong> On Proposals, each pending row has Accept, Reject, and Redirect. The choice is stored on the proposal. The original spreadsheet row stays as it was.</p>
+      <p><strong>Later.</strong> Filters and a fuller on-screen workbench. Phase 5 adds a plain explanation on every analysis row.</p>
     </div>
   </section>
 
   <footer>
-    <p>Regenerate every page with <code>python -m app.backend.cli report</code>.</p>
+    <p>Decisions on the Proposals page save when the site is started with <code>python -m app.backend.cli serve</code>. <code>python -m app.backend.cli report</code> only rewrites the files.</p>
   </footer>
 </body>
 </html>
