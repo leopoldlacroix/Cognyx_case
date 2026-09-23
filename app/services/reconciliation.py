@@ -188,3 +188,108 @@ def detect_component_identities(
 
     conn.commit()
     return matches
+
+
+def _supplier_match_key(normalized_reference: Optional[str], config: Dict) -> Optional[str]:
+    """Resolve supplier aliases so SIEMENS and SIEMENS MOBILITY share a key."""
+    if not normalized_reference:
+        return normalized_reference
+    return apply_supplier_aliases(normalized_reference, config)
+
+
+def _supplier_method(members: List[sqlite3.Row], config: Dict, match_key: str) -> str:
+    """EXACT if all stored norms already equal the match key; else NORMALIZED."""
+    for m in members:
+        stored = m["normalized_reference"]
+        resolved = _supplier_match_key(stored, config)
+        if resolved != stored or stored != match_key:
+            return "NORMALIZED"
+    return "EXACT"
+
+
+def detect_supplier_identities(
+    conn: sqlite3.Connection,
+    config: Optional[Dict] = None,
+    reconciliation_run_id: Optional[int] = None,
+) -> List[Dict]:
+    """Detect identity relationships among source_supplier rows.
+
+    Applies supplier_aliases to both sides before grouping. Queries
+    source_supplier only (D-2.3).
+    """
+    if config is None:
+        config = load_normalization_config()
+
+    rows = conn.execute(
+        """
+        SELECT id, normalized_reference, source_reference, source_system
+        FROM source_supplier
+        WHERE normalized_reference IS NOT NULL
+          AND normalized_reference != ''
+        ORDER BY id
+        """
+    ).fetchall()
+
+    by_key: Dict[str, List[sqlite3.Row]] = {}
+    for row in rows:
+        key = _supplier_match_key(row["normalized_reference"], config)
+        if not key:
+            continue
+        by_key.setdefault(key, []).append(row)
+
+    matches: List[Dict] = []
+    for match_key, members in sorted(by_key.items()):
+        if len(members) < 2:
+            continue
+
+        method = _supplier_method(members, config, match_key)
+        member_summaries = [
+            {
+                "source_supplier_id": m["id"],
+                "source_system": m["source_system"],
+                "source_reference": m["source_reference"],
+                "normalized_reference": m["normalized_reference"],
+            }
+            for m in members
+        ]
+
+        for member in members:
+            others = [
+                s
+                for s in member_summaries
+                if s["source_supplier_id"] != member["id"]
+            ]
+            evidence = {
+                "canonical_ref": match_key,
+                "relationship": "identity",
+                "source_supplier_id": member["id"],
+                "source_system": member["source_system"],
+                "source_reference": member["source_reference"],
+                "cluster_members": others,
+            }
+            rationale = (
+                f"Identity cluster on supplier key={match_key}: "
+                f"{len(members)} source suppliers"
+            )
+            record_reconciliation(
+                conn,
+                entity_type="supplier",
+                source_entity_id=member["id"],
+                status="PENDING",
+                method=method,
+                confidence=0.95,
+                rationale=rationale,
+                evidence=evidence,
+                reconciliation_run_id=reconciliation_run_id,
+            )
+            matches.append(
+                {
+                    **evidence,
+                    "confidence": 0.95,
+                    "method": method,
+                    "status": "PENDING",
+                }
+            )
+
+    conn.commit()
+    return matches

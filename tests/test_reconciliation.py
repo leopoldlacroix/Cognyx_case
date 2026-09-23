@@ -257,3 +257,121 @@ def test_record_reconciliation_component(conn):
         evidence={"foo": "bar"},
     )
     assert again is None
+
+
+# ---------------------------------------------------------------------------
+# Task 2.4.2 — supplier identities
+# ---------------------------------------------------------------------------
+
+
+def test_supplier_exact_normalized_name_match(conn):
+    from app.services.reconciliation import detect_supplier_identities
+
+    _insert_source_supplier(
+        conn,
+        source_system="PLM",
+        source_reference="FAIVELEY TRANSPORT",
+        normalized_reference="FAIVELEY TRANSPORT",
+    )
+    _insert_source_supplier(
+        conn,
+        source_system="ERP",
+        source_reference="SUP-FT",
+        normalized_reference="FAIVELEY TRANSPORT",
+    )
+
+    matches = detect_supplier_identities(conn)
+    assert len(matches) == 2
+
+    rows = conn.execute("SELECT * FROM supplier_reconciliation").fetchall()
+    assert len(rows) == 2
+    for row in rows:
+        assert row["status"] == "PENDING"
+        assert row["method"] == "EXACT"
+        assert row["confidence"] == pytest.approx(0.95)
+        assert row["supplier_id"] is None
+
+
+def test_supplier_alias_match_siemens(conn):
+    """SIEMENS (PLM) and SIEMENS MOBILITY (ERP) match via supplier_aliases."""
+    from app.services.reconciliation import detect_supplier_identities
+
+    _insert_source_supplier(
+        conn,
+        source_system="PLM",
+        source_reference="SIEMENS",
+        normalized_reference="SIEMENS",
+    )
+    _insert_source_supplier(
+        conn,
+        source_system="ERP",
+        source_reference="SUP-001",
+        normalized_reference="SIEMENS MOBILITY",
+    )
+
+    matches = detect_supplier_identities(conn)
+    assert len(matches) == 2
+
+    rows = conn.execute("SELECT * FROM supplier_reconciliation").fetchall()
+    assert len(rows) == 2
+    for row in rows:
+        assert row["status"] == "PENDING"
+        assert row["method"] == "NORMALIZED"
+        assert row["confidence"] == pytest.approx(0.95)
+        assert "SIEMENS MOBILITY" in row["evidence_json"]
+
+
+def test_detect_supplier_identities_idempotent(conn):
+    from app.services.reconciliation import detect_supplier_identities
+
+    _insert_source_supplier(
+        conn,
+        source_system="PLM",
+        source_reference="SIEMENS",
+        normalized_reference="SIEMENS",
+    )
+    _insert_source_supplier(
+        conn,
+        source_system="ERP",
+        source_reference="SUP-001",
+        normalized_reference="SIEMENS MOBILITY",
+    )
+
+    detect_supplier_identities(conn)
+    first = conn.execute(
+        "SELECT COUNT(*) AS c FROM supplier_reconciliation"
+    ).fetchone()["c"]
+    detect_supplier_identities(conn)
+    second = conn.execute(
+        "SELECT COUNT(*) AS c FROM supplier_reconciliation"
+    ).fetchone()["c"]
+    assert first == 2
+    assert second == first
+
+
+def test_supplier_detection_queries_source_supplier_only(conn):
+    """D-2.3: works with empty erp_supplier / plm_bom_line."""
+    from app.services.reconciliation import detect_supplier_identities
+
+    assert (
+        conn.execute("SELECT COUNT(*) AS c FROM erp_supplier").fetchone()["c"] == 0
+    )
+    assert (
+        conn.execute("SELECT COUNT(*) AS c FROM plm_bom_line").fetchone()["c"] == 0
+    )
+
+    _insert_source_supplier(
+        conn,
+        source_system="PLM",
+        source_reference="THALES",
+        normalized_reference="THALES",
+    )
+    _insert_source_supplier(
+        conn,
+        source_system="ERP",
+        source_reference="SUP-T",
+        normalized_reference="THALES GROUND TRANSPORTATION SYSTEMS",
+    )
+
+    matches = detect_supplier_identities(conn)
+    assert len(matches) == 2
