@@ -147,6 +147,8 @@ def create_schema(conn: sqlite3.Connection) -> None:
             cost_raw REAL,
             material_id_normalized TEXT,
             description_normalized TEXT,
+            supplier_name_normalized TEXT,
+            base_unit_normalized TEXT,
             FOREIGN KEY (source_file_id) REFERENCES source_file(id)
         )
     """)
