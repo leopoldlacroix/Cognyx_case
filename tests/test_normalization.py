@@ -222,6 +222,20 @@ class TestERPNormalization:
         from app.db.schema import create_schema
         create_schema(conn)
 
+        # FK parent for ERP rows
+        conn.execute(
+            'INSERT INTO source_file (source_system, file_name, file_hash, ingested_at) '
+            'VALUES (?, ?, ?, ?)',
+            ('ERP', 'material_master.csv', 'testhash', '2026-01-01T00:00:00Z')
+        )
+
+        # Matching supplier so unmatched_supplier warnings don't obscure UOM checks
+        conn.execute(
+            'INSERT INTO erp_supplier (source_file_id, source_row, supplier_id_raw, '
+            'supplier_name_raw, country_raw, supplier_name_normalized) VALUES (?, ?, ?, ?, ?, ?)',
+            (1, 1, 'SUP-001', 'Siemens Mobility GmbH', 'Germany', 'SIEMENS MOBILITY')
+        )
+
         config = load_normalization_config()
 
         # Insert ERP material with various UOMs
@@ -259,3 +273,9 @@ class TestERPNormalization:
             ).fetchone()
             assert result['base_unit_normalized'] == expected_norm, \
                 f"Material {mat_id}: expected {expected_norm}, got {result['base_unit_normalized']}"
+
+        # Unknown UOM emits soft warning
+        uom_warnings = conn.execute(
+            "SELECT warning_type FROM warnings WHERE warning_type = 'unknown_uom'"
+        ).fetchall()
+        assert len(uom_warnings) == 1, f"Expected 1 unknown_uom warning, got {len(uom_warnings)}"

@@ -257,10 +257,20 @@ def normalize_erp_materials(conn: sqlite3.Connection, config: Optional[Dict] = N
                 'UPDATE erp_material SET base_unit_normalized = ? WHERE id = ?',
                 (normalized_uom, mat_id)
             )
-            if raw_uom in uom_aliases:
+            # Known = alias key or canonical alias target (e.g. EA)
+            known_uoms = set(uom_aliases.keys()) | set(uom_aliases.values())
+            if raw_uom in known_uoms:
                 stats['uom_normalized'] += 1
             else:
                 stats['uom_unknown'] += 1
+                from app.services.ingestion import add_warning
+                add_warning(
+                    conn,
+                    'erp_material',
+                    mat_id,
+                    'unknown_uom',
+                    f"Unknown UOM '{base_unit_raw}' left as '{normalized_uom}'"
+                )
 
     conn.commit()
     return stats
