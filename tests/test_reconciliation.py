@@ -375,3 +375,109 @@ def test_supplier_detection_queries_source_supplier_only(conn):
 
     matches = detect_supplier_identities(conn)
     assert len(matches) == 2
+
+
+# ---------------------------------------------------------------------------
+# Task 2.4.3 — orchestrator
+# ---------------------------------------------------------------------------
+
+
+def test_run_entity_resolution_creates_runs_and_records(conn):
+    from app.services.reconciliation import run_entity_resolution
+
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-AIR-01",
+        normalized_reference="CTRL-AIR-01",
+    )
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="CTRL-AIR01",
+        normalized_reference="CTRL-AIR-01",
+    )
+    _insert_source_supplier(
+        conn,
+        source_system="PLM",
+        source_reference="SIEMENS",
+        normalized_reference="SIEMENS",
+    )
+    _insert_source_supplier(
+        conn,
+        source_system="ERP",
+        source_reference="SUP-001",
+        normalized_reference="SIEMENS MOBILITY",
+    )
+
+    summary = run_entity_resolution(conn)
+
+    assert summary["components_matched"] == 1
+    assert summary["suppliers_matched"] == 1
+    assert summary["total_records"] == 4  # 2 component + 2 supplier rows
+    assert summary["component_run_id"] is not None
+    assert summary["supplier_run_id"] is not None
+
+    runs = conn.execute(
+        "SELECT * FROM reconciliation_run ORDER BY id"
+    ).fetchall()
+    assert len(runs) == 2
+    assert {r["entity_type"] for r in runs} == {"component", "supplier"}
+    for run in runs:
+        assert run["status"] == "COMPLETED"
+        assert run["started_at"] is not None
+        assert run["completed_at"] is not None
+        assert run["items_needing_review"] == 2
+
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM component_reconciliation "
+            "WHERE reconciliation_run_id = ?",
+            (summary["component_run_id"],),
+        ).fetchone()["c"]
+        == 2
+    )
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM supplier_reconciliation "
+            "WHERE reconciliation_run_id = ?",
+            (summary["supplier_run_id"],),
+        ).fetchone()["c"]
+        == 2
+    )
+
+
+def test_run_entity_resolution_idempotent_records(conn):
+    from app.services.reconciliation import run_entity_resolution
+
+    _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="W-1",
+        normalized_reference="W-1",
+    )
+    _insert_source_component(
+        conn,
+        source_system="ERP",
+        source_reference="W-1",
+        normalized_reference="W-1",
+    )
+
+    first = run_entity_resolution(conn)
+    second = run_entity_resolution(conn)
+
+    assert first["total_records"] == 2
+    assert second["total_records"] == 2
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM component_reconciliation"
+        ).fetchone()["c"]
+        == 2
+    )
+    # Two runs each call (component + supplier) → 4 run rows after two calls
+    assert (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM reconciliation_run"
+        ).fetchone()["c"]
+        == 4
+    )

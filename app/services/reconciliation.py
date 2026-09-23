@@ -293,3 +293,131 @@ def detect_supplier_identities(
 
     conn.commit()
     return matches
+
+
+def _start_reconciliation_run(
+    conn: sqlite3.Connection,
+    entity_type: str,
+) -> int:
+    """Insert a reconciliation_run row and return its id."""
+    cur = conn.execute(
+        """
+        INSERT INTO reconciliation_run (entity_type, started_at, status)
+        VALUES (?, ?, 'RUNNING')
+        """,
+        (entity_type, _now()),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def _complete_reconciliation_run(
+    conn: sqlite3.Connection,
+    run_id: int,
+    *,
+    items_processed: int,
+    items_assessed: int,
+    items_needing_review: int,
+) -> None:
+    conn.execute(
+        """
+        UPDATE reconciliation_run
+        SET completed_at = ?,
+            status = 'COMPLETED',
+            items_processed = ?,
+            items_assessed = ?,
+            items_needing_review = ?,
+            error_count = 0
+        WHERE id = ?
+        """,
+        (
+            _now(),
+            items_processed,
+            items_assessed,
+            items_needing_review,
+            run_id,
+        ),
+    )
+    conn.commit()
+
+
+def run_entity_resolution(
+    conn: sqlite3.Connection,
+    config: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    """Run full entity resolution: components + suppliers.
+
+    Creates reconciliation_run rows first, then runs both detectors.
+    Returns a summary dict with match counts and run ids.
+    """
+    if config is None:
+        config = load_normalization_config()
+
+    component_run_id = _start_reconciliation_run(conn, "component")
+    component_matches = detect_component_identities(
+        conn, config=config, reconciliation_run_id=component_run_id
+    )
+    component_clusters = {m["canonical_ref"] for m in component_matches}
+    _complete_reconciliation_run(
+        conn,
+        component_run_id,
+        items_processed=len(component_matches),
+        items_assessed=len(component_matches),
+        items_needing_review=len(component_matches),
+    )
+
+    supplier_run_id = _start_reconciliation_run(conn, "supplier")
+    supplier_matches = detect_supplier_identities(
+        conn, config=config, reconciliation_run_id=supplier_run_id
+    )
+    supplier_clusters = {m["canonical_ref"] for m in supplier_matches}
+    _complete_reconciliation_run(
+        conn,
+        supplier_run_id,
+        items_processed=len(supplier_matches),
+        items_assessed=len(supplier_matches),
+        items_needing_review=len(supplier_matches),
+    )
+
+    total_records = (
+        conn.execute(
+            "SELECT COUNT(*) AS c FROM component_reconciliation"
+        ).fetchone()["c"]
+        + conn.execute(
+            "SELECT COUNT(*) AS c FROM supplier_reconciliation"
+        ).fetchone()["c"]
+    )
+
+    return {
+        "components_matched": len(component_clusters),
+        "suppliers_matched": len(supplier_clusters),
+        "total_records": total_records,
+        "component_run_id": component_run_id,
+        "supplier_run_id": supplier_run_id,
+    }
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """Thin entry point: python -m app.services.reconciliation [--db PATH]."""
+    import argparse
+
+    from app.db.connection import get_connection, init_database
+
+    parser = argparse.ArgumentParser(description="Run entity resolution")
+    parser.add_argument("--db", default="cognyx.db", help="Database path")
+    args = parser.parse_args(argv)
+
+    init_database(args.db)
+    conn = get_connection(args.db)
+    summary = run_entity_resolution(conn)
+    print(
+        f"components_matched={summary['components_matched']} "
+        f"suppliers_matched={summary['suppliers_matched']} "
+        f"total_records={summary['total_records']}"
+    )
+    conn.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
