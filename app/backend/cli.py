@@ -39,6 +39,12 @@ def main():
     report_parser.add_argument('--db', help='Database path for this command')
     report_parser.add_argument('--output', help='HTML file to write')
 
+    serve_parser = subparsers.add_parser(
+        'serve',
+        help='Open the pages in a browser and save proposal decisions',
+    )
+    serve_parser.add_argument('--port', type=int, default=8765)
+
     # Review: list / decide
     review_parser = subparsers.add_parser('review', help='List or decide reconciliations')
     review_sub = review_parser.add_subparsers(dest='review_command', required=True)
@@ -82,7 +88,7 @@ def main():
     args = parser.parse_args()
 
     db_path = args.db or 'cognyx.db'
-    if args.command == 'report' and db_path == 'cognyx.db':
+    if args.command in ('report', 'serve') and db_path == 'cognyx.db':
         db_path = str(PROCESSED_DIR / 'cognyx.db')
     conn = init_database(db_path)
 
@@ -155,6 +161,11 @@ def main():
         for path in written:
             print(f"Wrote {path}")
         print(f"Open {output_dir / 'workflow.html'} in a browser.")
+
+    elif args.command == 'serve':
+        from app.backend.serve import serve_site
+
+        serve_site(conn, PROCESSED_DIR, port=args.port)
 
     elif args.command == 'review':
         from app.services.review import decide_reconciliation, list_reconciliations

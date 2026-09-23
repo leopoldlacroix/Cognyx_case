@@ -53,6 +53,7 @@ def shell(
       background: #f7f6f3;
       line-height: 1.45;
     }}
+    body.proposals-page {{ max-width: 1100px; }}
     h1 {{ font-size: 1.7rem; font-weight: 650; margin: 0.6rem 0 0.4rem; }}
     h2 {{ font-size: 1.05rem; margin: 0; }}
     p {{ margin: 0.3rem 0; }}
@@ -99,6 +100,17 @@ def shell(
     }}
     footer {{ margin-top: 2.5rem; color: #78716c; font-size: 0.85rem; }}
     code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }}
+    form.decide {{ display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin: 0; }}
+    form.decide input[type="text"] {{
+      font: inherit; font-size: 0.85rem; padding: 0.2rem 0.4rem;
+      border: 1px solid #e7e5e4; border-radius: 6px; width: 9.5rem;
+    }}
+    button {{
+      font: inherit; font-size: 0.82rem; padding: 0.2rem 0.55rem;
+      border-radius: 6px; border: 1px solid #d6d3d1; background: #fff; cursor: pointer;
+    }}
+    button.accept {{ background: #ecfccb; border-color: #65a30d; }}
+    button.reject {{ background: #fee2e2; border-color: #dc2626; }}
     article {{
       background: #fff; border: 1px solid #e7e5e4;
       border-left: 4px solid #44403c;
@@ -117,7 +129,7 @@ def shell(
   <nav>{nav}</nav>
   {body}
   <footer>
-    <p>Regenerate every page with <code>python -m app.backend.cli report</code>.</p>
+    <p>Decisions on the Proposals page save when the site is started with <code>python -m app.backend.cli serve</code>. <code>python -m app.backend.cli report</code> only rewrites the files.</p>
   </footer>
 </body>
 </html>
@@ -315,17 +327,16 @@ def render_workflow(conn: sqlite3.Connection) -> str:
         ("done", "Done", "4. Source entities",
          f"{counts['source_components']} components, {counts['source_assemblies']} assemblies, {counts['source_suppliers']} suppliers."),
         ("done", "Done", "5. Reconciliation proposals",
-         f"{counts['proposals']} component proposals. {counts['pending']} are still pending. No one has accepted or rejected them. See the Proposals page."),
-        ("missing", "Not yet", "6. Human decision",
-         "Accept, reject, or redirect a proposal. This is Phase 3. The decision is stored. It does not overwrite the source row."),
+         f"{counts['proposals']} component proposals. {_decision_counts(counts)}"),
+        _decision_step(counts),
         ("missing", "Not yet", "7. Canonical model",
          "One component, assembly, and variant the rest of the analysis is allowed to trust, plus a canonical BOM. These tables do not exist yet. This is the missing piece."),
-        ("preview", "Preview", "8. Reuse snapshot",
-         "The Reuse page is a preview from normalized references and notes. It is not yet computed from an accepted canonical BOM."),
-        ("later", "Later", "9. Compare and explain",
-         "Phase 4 adds variant-versus-variant and assembly overlap. Phase 5 puts a plain explanation on every row and finishes the edge cases."),
+        ("done", "Done", "8. Reuse snapshot",
+         "The Reuse page lists parts already shared, parts worth a look, Nordic-only parts, blockers, and data issues."),
+        ("done", "Done", "9. Compare",
+         "The Compare page opens on Standard versus Nordic. Each assembly shows shared parts, one-sided parts, and the spreadsheet row. Phase 5 adds a plain explanation on every row."),
         ("later", "Later version", "10. Interactive workbench",
-         "Filters, clicking a row, and deciding on screen. Not part of this PoC. It needs the canonical model first."),
+         "Filters and a fuller review screen. Accept, reject, and redirect are already on the Proposals page."),
     ]
     if canonical_ready:
         steps[6] = ("done", "Done", "7. Canonical model",
@@ -340,14 +351,14 @@ def render_workflow(conn: sqlite3.Connection) -> str:
         )
     body = f"""
   <h1>How the pipeline fits together</h1>
-  <p class="lede">What is already in the database, what this preview report is doing, and what a later version still needs. Use this page while you talk. Open Normalize and Proposals to check the rows.</p>
+  <p class="lede">What is already in the database, and where a person decides. Open Proposals to accept, reject, or redirect. Start the site with <code>python -m app.backend.cli serve</code> so those buttons save.</p>
   <ol class="flow">{''.join(items)}</ol>
   <section>
     <h2>What to say</h2>
     <div class="note">
       <p><strong>Accomplished.</strong> Messy PLM, ERP, and engineering notes are ingested, cleaned, and turned into reviewable proposals. Identity, similarity, and Nordic-only parts stay separate.</p>
-      <p><strong>Missing.</strong> A canonical model, and a human decision that fills it. Until then, “already reused” means “same normalized reference,” not “an engineer accepted the match.”</p>
-      <p><strong>Later.</strong> Comparison across variants, fuller explanations, then a screen where someone can filter and decide. Not required to show the pilot story.</p>
+      <p><strong>Decide.</strong> On Proposals, each pending row has Accept, Reject, and Redirect. The choice is stored on the proposal. The original spreadsheet row stays as it was.</p>
+      <p><strong>Later.</strong> Filters and a fuller on-screen workbench. Phase 5 adds a plain explanation on every analysis row.</p>
     </div>
   </section>
 """
@@ -481,9 +492,15 @@ def render_proposals(conn: sqlite3.Connection) -> str:
         [ref, ", ".join(sorted(info["refs"])), info["status"], "—" if info["canonical_id"] is None else str(info["canonical_id"])]
         for ref, info in sorted(identity.items())
     ][:8]
+    pending_table = _pending_decision_table(conn)
     body = f"""
   <h1>Check reconciliation proposals</h1>
-  <p class="lede">Proposals only. Nothing here has been accepted into a canonical component. Canonical id stays empty on purpose.</p>
+  <p class="lede">Each pending row can be accepted, rejected, or redirected. The original spreadsheet row is not overwritten. The buttons save when this page is opened through <code>python -m app.backend.cli serve</code>.</p>
+  <section id="decide">
+    <h2>Waiting for a decision</h2>
+    <p>Reject needs a short reason. Redirect needs the source id of the record the proposal should point at.</p>
+    {pending_table}
+  </section>
   <div class="counts">
     <span>{len(rows)} component proposals</span>
     <span>{len(identity)} identity clusters</span>
@@ -507,7 +524,7 @@ def render_proposals(conn: sqlite3.Connection) -> str:
     {_table(["Reference"], [[ref] for ref in nordic[:8]])}
   </section>
 """
-    return shell("Cognyx — proposals", "proposals.html", body)
+    return shell("Cognyx — proposals", "proposals.html", body, body_class="proposals-page")
 
 
 def render_canonical(conn: sqlite3.Connection) -> str:
@@ -619,6 +636,85 @@ def render_canonical(conn: sqlite3.Connection) -> str:
     return shell("Cognyx — canonical", "canonical.html", body)
 
 
+def _decision_counts(counts: Dict[str, int]) -> str:
+    if counts["accepted"] or counts["rejected"]:
+        return (
+            f"{counts['accepted']} accepted, {counts['rejected']} rejected, "
+            f"{counts['pending']} still pending."
+        )
+    return f"{counts['pending']} are still pending. Accept or reject them on the Proposals page."
+
+
+def _decision_step(counts: Dict[str, int]):
+    if counts["accepted"] or counts["rejected"]:
+        return (
+            "done",
+            "Done",
+            "6. Human decision",
+            f"{counts['accepted']} accepted, {counts['rejected']} rejected, "
+            f"{counts['pending']} still pending. Use the buttons on the Proposals page. "
+            "The source row is not overwritten.",
+        )
+    return (
+        "preview",
+        "On Proposals",
+        "6. Human decision",
+        "Accept, reject, or redirect on the Proposals page. "
+        "Start it with python -m app.backend.cli serve so the buttons can save. "
+        "The decision is stored. It does not overwrite the source row.",
+    )
+
+
+def _pending_decision_table(conn: sqlite3.Connection) -> str:
+    if not _table_exists(conn, "component_reconciliation"):
+        return _table(["Proposal", "Reference", "Kind", "Status", "Decision"], [])
+    rows = conn.execute(
+        """
+        SELECT r.id, r.status, s.id AS source_id, s.source_reference,
+               s.normalized_reference, r.evidence_json
+        FROM component_reconciliation r
+        JOIN source_component s ON s.id = r.source_component_id
+        WHERE r.status = 'PENDING'
+        ORDER BY r.id
+        """
+    ).fetchall()
+    e = html.escape
+    body_rows = []
+    for row in rows:
+        try:
+            evidence = json.loads(row["evidence_json"] or "{}")
+        except json.JSONDecodeError:
+            evidence = {}
+        kind = evidence.get("relationship") or "identity"
+        form = (
+            f'<form class="decide" method="post" action="/review/decide">'
+            f'<input type="hidden" name="entity" value="component">'
+            f'<input type="hidden" name="id" value="{int(row["id"])}">'
+            f'<input type="text" name="rationale" placeholder="Reason">'
+            f'<input type="text" name="redirect_to" placeholder="Source id">'
+            f'<button class="accept" name="action" value="accept">Accept</button>'
+            f'<button class="reject" name="action" value="reject">Reject</button>'
+            f'<button name="action" value="redirect">Redirect</button>'
+            f"</form>"
+        )
+        body_rows.append(
+            "<tr>"
+            f"<td>{int(row['id'])}</td>"
+            f"<td>{e(row['source_reference'] or '')}<div class=\"meta\">source id {int(row['source_id'])} · {e(row['normalized_reference'] or '')}</div></td>"
+            f"<td>{e(kind)}</td>"
+            f"<td>{e(row['status'])}</td>"
+            f"<td>{form}</td>"
+            "</tr>"
+        )
+    if not body_rows:
+        body_rows.append('<tr><td colspan="5">No pending proposals.</td></tr>')
+    head = "".join(
+        f"<th>{e(label)}</th>"
+        for label in ("Proposal", "Reference", "Kind", "Status", "Decision")
+    )
+    return f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
+
+
 def _pipeline_counts(conn: sqlite3.Connection) -> Dict[str, int]:
     def n(sql: str) -> int:
         try:
@@ -635,6 +731,8 @@ def _pipeline_counts(conn: sqlite3.Connection) -> Dict[str, int]:
         "source_suppliers": n("SELECT COUNT(*) FROM source_supplier"),
         "proposals": n("SELECT COUNT(*) FROM component_reconciliation"),
         "pending": n("SELECT COUNT(*) FROM component_reconciliation WHERE status = 'PENDING'"),
+        "accepted": n("SELECT COUNT(*) FROM component_reconciliation WHERE status = 'ACCEPTED'"),
+        "rejected": n("SELECT COUNT(*) FROM component_reconciliation WHERE status = 'REJECTED'"),
         "canonical_rows": n("SELECT COUNT(*) FROM component") if _table_exists(conn, "component") else 0,
     }
 
