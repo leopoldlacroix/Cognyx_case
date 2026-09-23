@@ -99,18 +99,36 @@ def apply_uom_aliases(normalized_uom: Optional[str], config: Dict) -> Optional[s
 
 
 def apply_supplier_aliases(normalized_supplier: Optional[str], config: Dict) -> Optional[str]:
-    """Apply supplier aliases. Tries exact match first, then prefix matching."""
+    """Apply supplier aliases. Tries exact match first, then prefix matching.
+
+    Both the input and config keys are normalized via normalize_reference
+    for comparison, so hyphens/spaces/underscores don't break matching
+    (e.g. 'KNORR BREMSE' matches config key 'KNORR-BREMSE').
+    """
     if not normalized_supplier:
         return normalized_supplier
+
     supplier_aliases = config.get('supplier_aliases', {})
-    # Exact match
-    if normalized_supplier in supplier_aliases:
-        return supplier_aliases[normalized_supplier]
-    # Prefix match
-    supplier_upper = normalized_supplier.upper()
+
+    # Normalize the input the same way config keys will be normalized
+    # so punctuation discrepancies don't break matching
+    norm_input = normalize_reference(normalized_supplier)
+
+    # Build normalized lookup from config keys
+    normalized_aliases: Dict[str, str] = {}
     for alias, canonical in supplier_aliases.items():
-        if supplier_upper.startswith(alias.upper()):
+        norm_key = normalize_reference(alias)
+        normalized_aliases[norm_key] = canonical
+
+    # Exact match
+    if norm_input in normalized_aliases:
+        return normalized_aliases[norm_input]
+
+    # Prefix match
+    for norm_key, canonical in normalized_aliases.items():
+        if norm_input.startswith(norm_key):
             return canonical
+
     return normalized_supplier
 
 
