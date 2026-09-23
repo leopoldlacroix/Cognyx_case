@@ -403,3 +403,343 @@ def reusable_candidates(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
     candidates.extend(_rugged_description_candidates(conn, existing_keys))
     candidates.sort(key=lambda c: (c["left_ref"], c["right_ref"]))
     return candidates
+
+
+_ANCHOR_SAFE_RE = re.compile(r"[^A-Za-z0-9-]+")
+
+
+def _anchor(*parts: str) -> str:
+    raw = "-".join(parts)
+    return _ANCHOR_SAFE_RE.sub("-", raw)
+
+
+def _variant_specific_refs(conn: sqlite3.Connection) -> Set[str]:
+    """Normalized/raw refs with a variant_specific reconciliation row."""
+    refs: Set[str] = set()
+    rows = conn.execute(
+        """
+        SELECT sc.source_reference, sc.normalized_reference, cr.evidence_json
+        FROM component_reconciliation cr
+        JOIN source_component sc ON sc.id = cr.source_component_id
+        WHERE cr.evidence_json IS NOT NULL
+        """
+    ).fetchall()
+    for row in rows:
+        evidence = _parse_evidence(row["evidence_json"])
+        if evidence.get("relationship") != "variant_specific":
+            continue
+        for ref in (
+            row["source_reference"],
+            row["normalized_reference"],
+            evidence.get("component_ref"),
+        ):
+            if ref:
+                refs.add(ref)
+    return refs
+
+
+def _bom_line_records(
+    conn: sqlite3.Connection, bom_line_ids: List[int]
+) -> List[Dict[str, Any]]:
+    if not bom_line_ids:
+        return []
+    placeholders = ",".join("?" * len(bom_line_ids))
+    rows = conn.execute(
+        f"""
+        SELECT pbl.id AS source_id, pbl.source_row, sf.file_name AS source_file
+        FROM plm_bom_line pbl
+        JOIN source_file sf ON sf.id = pbl.source_file_id
+        WHERE pbl.id IN ({placeholders})
+        ORDER BY pbl.id
+        """,
+        tuple(bom_line_ids),
+    ).fetchall()
+    return [
+        {
+            "source_table": "plm_bom_line",
+            "source_id": row["source_id"],
+            "source_file": row["source_file"],
+            "source_row": row["source_row"],
+        }
+        for row in rows
+    ]
+
+
+def _label_for_component(
+    *,
+    is_unresolved: bool,
+    is_blocked: bool,
+    is_variant_specific: bool,
+    is_candidate: bool,
+    side: str,
+) -> str:
+    # Priority: unresolved > blocked > variant_specific > reuse_candidate > reused > left_only > right_only
+    if is_unresolved:
+        return "unresolved"
+    if is_blocked:
+        return "blocked"
+    if is_variant_specific:
+        return "variant_specific"
+    if is_candidate:
+        return "reuse_candidate"
+    if side == "both":
+        return "reused"
+    if side == "left":
+        return "left_only"
+    return "right_only"
+
+
+def compare_variants(
+    conn: sqlite3.Connection, left_ref: str, right_ref: str
+) -> Dict[str, Any]:
+    """Compare two variants assembly-by-assembly using canonical BOM overlap."""
+    from app.services.quality import blockers
+
+    candidate_rows = reusable_candidates(conn)
+    blocker_rows = blockers(conn)
+    variant_specific = _variant_specific_refs(conn)
+
+    blocker_refs: Set[str] = set()
+    for row in blocker_rows:
+        entity = row.get("entity_ref")
+        if entity:
+            blocker_refs.add(entity)
+
+    # Canonical BOM rows for the two variants
+    bom_rows = conn.execute(
+        """
+        SELECT
+            a.id AS assembly_id,
+            a.normalized_reference AS assembly_ref,
+            c.id AS component_id,
+            c.normalized_reference AS component_ref,
+            v.normalized_reference AS variant_ref,
+            br.source_bom_line_id AS source_bom_line_id
+        FROM bom_relationship br
+        JOIN assembly a ON a.id = br.assembly_id
+        JOIN component c ON c.id = br.component_id
+        JOIN variant v ON v.id = br.variant_id
+        WHERE v.normalized_reference IN (?, ?)
+        ORDER BY a.normalized_reference, c.normalized_reference, br.source_bom_line_id
+        """,
+        (left_ref, right_ref),
+    ).fetchall()
+
+    # assembly_ref → {assembly_id, components: ref → {...}}
+    assemblies: Dict[str, Dict[str, Any]] = {}
+
+    def _ensure_assembly(assembly_ref: str, assembly_id: Optional[int] = None) -> Dict[str, Any]:
+        bucket = assemblies.setdefault(
+            assembly_ref,
+            {
+                "assembly_ref": assembly_ref,
+                "canonical_assembly_id": assembly_id,
+                "components": {},  # ref → component bucket
+            },
+        )
+        if assembly_id is not None and bucket["canonical_assembly_id"] is None:
+            bucket["canonical_assembly_id"] = assembly_id
+        return bucket
+
+    for row in bom_rows:
+        asm = _ensure_assembly(row["assembly_ref"], row["assembly_id"])
+        cref = row["component_ref"]
+        comp = asm["components"].setdefault(
+            cref,
+            {
+                "ref": cref,
+                "canonical_id": row["component_id"],
+                "variants": set(),
+                "bom_ids": [],
+                "unresolved": False,
+            },
+        )
+        if row["variant_ref"]:
+            comp["variants"].add(row["variant_ref"])
+        if row["source_bom_line_id"] is not None:
+            comp["bom_ids"].append(row["source_bom_line_id"])
+
+    # Unresolved: plm_bom_line on these variants/assemblies not on bom_relationship
+    resolved_bom_ids = {
+        row["source_bom_line_id"]
+        for row in bom_rows
+        if row["source_bom_line_id"] is not None
+    }
+    unresolved_rows = conn.execute(
+        """
+        SELECT
+            pbl.id AS bom_id,
+            pbl.assembly_ref_normalized AS assembly_ref,
+            pbl.component_ref_normalized AS component_ref,
+            pbl.component_ref_raw AS component_ref_raw,
+            pbl.variant_ref_normalized AS variant_ref
+        FROM plm_bom_line pbl
+        WHERE pbl.variant_ref_normalized IN (?, ?)
+          AND pbl.assembly_ref_normalized IS NOT NULL
+        ORDER BY pbl.id
+        """,
+        (left_ref, right_ref),
+    ).fetchall()
+
+    for row in unresolved_rows:
+        if row["bom_id"] in resolved_bom_ids:
+            continue
+        assembly_ref = row["assembly_ref"]
+        cref = row["component_ref"] or row["component_ref_raw"] or f"unresolved-{row['bom_id']}"
+        # Look up canonical assembly id if present
+        asm_row = conn.execute(
+            "SELECT id FROM assembly WHERE normalized_reference = ?",
+            (assembly_ref,),
+        ).fetchone()
+        asm = _ensure_assembly(
+            assembly_ref, asm_row["id"] if asm_row else None
+        )
+        comp = asm["components"].setdefault(
+            cref,
+            {
+                "ref": cref,
+                "canonical_id": None,
+                "variants": set(),
+                "bom_ids": [],
+                "unresolved": True,
+            },
+        )
+        comp["unresolved"] = True
+        comp["canonical_id"] = None
+        if row["variant_ref"]:
+            comp["variants"].add(row["variant_ref"])
+        comp["bom_ids"].append(row["bom_id"])
+
+    # Also pick up assembly refs that appear only via unresolved lines already handled;
+    # ensure any assembly on neither is omitted (we only added from BOM for these variants).
+
+    assembly_results: List[Dict[str, Any]] = []
+    for assembly_ref in sorted(assemblies.keys()):
+        asm = assemblies[assembly_ref]
+        component_results: List[Dict[str, Any]] = []
+
+        # Collect refs present on this assembly for candidate-pair matching
+        assembly_component_refs = set(asm["components"].keys())
+
+        # Candidate pairs where both sides appear on this assembly
+        assembly_candidate_pairs: List[Tuple[str, str]] = []
+        candidate_refs: Set[str] = set()
+        for cand in candidate_rows:
+            left_c, right_c = cand["left_ref"], cand["right_ref"]
+            if left_c in assembly_component_refs and right_c in assembly_component_refs:
+                assembly_candidate_pairs.append((left_c, right_c))
+                candidate_refs.add(left_c)
+                candidate_refs.add(right_c)
+
+        left_ids: Set[int] = set()
+        right_ids: Set[int] = set()
+
+        for cref, comp in asm["components"].items():
+            variants = comp["variants"]
+            on_left = left_ref in variants
+            on_right = right_ref in variants
+            if on_left and on_right:
+                side = "both"
+            elif on_left:
+                side = "left"
+            else:
+                side = "right"
+
+            cid = comp["canonical_id"]
+            is_unresolved = bool(comp["unresolved"]) or cid is None
+            # Unresolved lines have no canonical id and stay out of ratio sets
+            if not is_unresolved and cid is not None:
+                if on_left:
+                    left_ids.add(cid)
+                if on_right:
+                    right_ids.add(cid)
+
+            is_blocked = (
+                cref in blocker_refs
+                or assembly_ref in blocker_refs
+            )
+            # Also match raw refs via BOM lines if needed — cref is normalized.
+            is_vs = cref in variant_specific
+            is_cand = cref in candidate_refs and not is_unresolved
+
+            label = _label_for_component(
+                is_unresolved=is_unresolved,
+                is_blocked=is_blocked,
+                is_variant_specific=is_vs,
+                is_candidate=is_cand,
+                side=side,
+            )
+
+            bom_ids = sorted(set(comp["bom_ids"]))
+            component_results.append(
+                {
+                    "label": label,
+                    "ref": cref,
+                    "canonical_id": None if is_unresolved else cid,
+                    "side": side,
+                    "source_bom_line_ids": bom_ids,
+                    "anchor": _anchor(left_ref, right_ref, assembly_ref, cref),
+                    "records": _bom_line_records(conn, bom_ids),
+                }
+            )
+
+        component_results.sort(key=lambda c: c["ref"])
+
+        shared = left_ids & right_ids
+        left_only = left_ids - right_ids
+        right_only = right_ids - left_ids
+        union = left_ids | right_ids
+        ratio = round(len(shared) / len(union), 2) if union else 0.0
+
+        shared_count = len(shared)
+        left_only_count = len(left_only)
+        right_only_count = len(right_only)
+        variant_specific_count = sum(
+            1 for c in component_results if c["label"] == "variant_specific"
+        )
+        unresolved_count = sum(
+            1 for c in component_results if c["label"] == "unresolved"
+        )
+        conflict_count = sum(1 for c in component_results if c["label"] == "blocked")
+        candidate_count = len(assembly_candidate_pairs)
+
+        assembly_results.append(
+            {
+                "assembly_ref": assembly_ref,
+                "canonical_assembly_id": asm["canonical_assembly_id"],
+                "shared_count": shared_count,
+                "left_only_count": left_only_count,
+                "right_only_count": right_only_count,
+                "variant_specific_count": variant_specific_count,
+                "unresolved_count": unresolved_count,
+                "conflict_count": conflict_count,
+                "candidate_count": candidate_count,
+                "overlap_ratio": ratio,
+                "high_overlap": ratio >= 0.5,
+                "components": component_results,
+            }
+        )
+
+    return {
+        "left_ref": left_ref,
+        "right_ref": right_ref,
+        "assemblies": assembly_results,
+    }
+
+
+def all_variant_pairs(conn: sqlite3.Connection) -> List[Tuple[str, str]]:
+    """Unordered pairs of distinct variant.normalized_reference values, left < right."""
+    rows = conn.execute(
+        """
+        SELECT normalized_reference
+        FROM variant
+        WHERE normalized_reference IS NOT NULL
+        ORDER BY normalized_reference
+        """
+    ).fetchall()
+    refs = [row["normalized_reference"] for row in rows]
+    pairs: List[Tuple[str, str]] = []
+    for i, left in enumerate(refs):
+        for right in refs[i + 1 :]:
+            pairs.append((left, right))
+    return pairs
