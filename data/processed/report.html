@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cognyx — reuse snapshot</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+      max-width: 820px;
+      margin: 1.5rem auto 4rem;
+      padding: 0 1.25rem;
+      color: #1c1917;
+      background: #f7f6f3;
+      line-height: 1.45;
+    }
+    h1 { font-size: 1.7rem; font-weight: 650; margin: 0.6rem 0 0.4rem; }
+    h2 { font-size: 1.05rem; margin: 0; }
+    p { margin: 0.3rem 0; }
+    a { color: #1e3a8a; }
+    nav {
+      display: flex; flex-wrap: wrap; gap: 0.4rem;
+      margin-bottom: 0.5rem;
+    }
+    nav a {
+      text-decoration: none; color: #44403c;
+      background: #fff; border: 1px solid #e7e5e4;
+      border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.9rem;
+    }
+    nav a.active { background: #1c1917; color: #fff; border-color: #1c1917; }
+    .lede { color: #44403c; margin-bottom: 1rem; }
+    .counts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; font-size: 0.9rem; }
+    .counts span, .badge {
+      background: #fff; border: 1px solid #e7e5e4;
+      border-radius: 999px; padding: 0.15rem 0.7rem; font-size: 0.8rem;
+    }
+    .badge.done { background: #ecfccb; border-color: #65a30d; color: #3f6212; }
+    .badge.preview { background: #fef9c3; border-color: #ca8a04; color: #854d0e; }
+    .badge.missing { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+    .badge.later { background: #e0e7ff; border-color: #6366f1; color: #3730a3; }
+    ol.flow { list-style: none; padding: 0; margin: 1rem 0; }
+    ol.flow li {
+      background: #fff; border: 1px solid #e7e5e4; border-radius: 10px;
+      padding: 0.8rem 1rem; margin: 0;
+    }
+    ol.flow li + li { margin-top: 0.45rem; }
+    ol.flow .step-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+    ol.flow p { color: #44403c; font-size: 0.95rem; }
+    table {
+      width: 100%; border-collapse: collapse; background: #fff;
+      border: 1px solid #e7e5e4; border-radius: 8px; overflow: hidden;
+      margin-top: 0.5rem; font-size: 0.92rem;
+    }
+    th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid #f5f5f4; vertical-align: top; }
+    th { background: #fafaf9; font-weight: 600; }
+    section { margin-top: 1.6rem; }
+    .note {
+      background: #fff; border: 1px solid #e7e5e4; border-radius: 8px;
+      padding: 0.75rem 1rem; margin-top: 0.8rem;
+    }
+    footer { margin-top: 2.5rem; color: #78716c; font-size: 0.85rem; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+    article {
+      background: #fff; border: 1px solid #e7e5e4;
+      border-left: 4px solid #44403c;
+      border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.6rem;
+    }
+    article.reuse { border-left-color: #3f6212; }
+    article.candidate { border-left-color: #a16207; }
+    article.separate { border-left-color: #1e40af; }
+    article.blocker { border-left-color: #b91c1c; }
+    article.issue { border-left-color: #9a3412; }
+    .meta { color: #57534e; font-size: 0.85rem; margin-top: 0.25rem; }
+    
+  </style>
+</head>
+<body>
+  <nav><a href="workflow.html">Workflow</a><a href="normalize.html">1 · Normalize</a><a href="proposals.html">2 · Proposals</a><a href="canonical.html">3 · Canonical</a><a href="compare.html">4 · Compare</a><a href="report.html" class="active">Preview · Reuse</a></nav>
+  
+  <h1>Which parts are reused across train variants?</h1>
+  <p class="lede">Pilot snapshot for the Valenciennes regional-train BOMs. Same reference across variants is listed as already reused. Similar parts stay separate until someone reviews them. Conflicts and bad rows are shown, not cleaned away.</p>
+  <div class="counts">
+    <span>5 variants</span>
+    <span>137 BOM lines</span>
+    <span>1 quarantined</span>
+    <span>33 shared parts</span>
+    <span>24 candidates</span>
+  </div>
+  <section><h2>Already reused</h2><p>The same normalized part number shows up on more than one variant.</p><article class="reuse"><p><strong>APC-M05</strong></p><p>APC-M05 is the same canonical assembly on variants REGIO-COMFORT, REGIO-STD.</p><p class="meta">Regional Comfort (REGIO-COMFORT), Regional Standard (REGIO-STD)</p></article><article class="reuse"><p><strong>BAT-M06</strong></p><p>BAT-M06 is the same canonical assembly on variants REGIO-COMFORT, REGIO-NORDIC, REGIO-STD.</p><p class="meta">Regional Comfort (REGIO-COMFORT), Regional Nordic (REGIO-NORDIC), Regional Standard (REGIO-STD)</p></article><article class="reuse"><p><strong>BRAKE-M03</strong></p><p>BRAKE-M03 is the same canonical assembly on variants REGIO-COMFORT, REGIO-STD.</p><p class="meta">Regional Comfort (REGIO-COMFORT), Regional Standard (REGIO-STD)</p></article><article class="reuse"><p><strong>CAB-CTRL-M01</strong></p><p>CAB-CTRL-M01 is the same canonical assembly on variants REGIO-COMFORT, REGIO-HC.</p><p class="meta">Regional Comfort (REGIO-COMFORT), Regional High Capacity (REGIO-HC)</p></article><article class="reuse"><p><strong>DOOR-M02</strong></p><p>DOOR-M02 is the same canonical assembly on variants REGIO-COMFORT, REGIO-STD.</p><p class="meta">Regional Comfort (REGIO-COMFORT), Regional Standard (REGIO-STD)</p></article><article class="reuse"><p><strong>LIGHT-M09</strong></p><p>LIGHT-M09 is the same canonical assembly on variants REGIO-COMFORT, REGIO-HC, REGIO-STD.</p><p class="meta">Regional Comfort (REGIO-COMFORT), Regional High Capacity (REGIO-HC), Regional Standard (REGIO-STD)</p></article><article class="reuse"><p><strong>AMP-PAX-01</strong></p><p>AMP-PAX-01 is the same canonical component on variants REGIO-EXPORT, REGIO-NORDIC, REGIO-STD.</p><p class="meta">Regional Export (REGIO-EXPORT), Regional Nordic (REGIO-NORDIC), Regional Standard (REGIO-STD)</p></article><article class="reuse"><p><strong>APC-750-24</strong></p><p>APC-750-24 is the same canonical component on variants REGIO-EXPORT, REGIO-STD.</p><p class="meta">Regional Export (REGIO-EXPORT), Regional Standard (REGIO-STD)</p></article><p class="meta">Showing 8 of 33.</p></section>
+<section><h2>Worth a look</h2><p>These look close. They are not treated as the same part.</p><article class="candidate"><p><strong>BAT-TEMP-01</strong> and <strong>CAPT-TEMP-01</strong></p><p>BAT-TEMP-01 and CAPT-TEMP-01 are a functional_similarity candidate. Evidence: 5, 6.</p></article><article class="candidate"><p><strong>BATT-MON-01</strong> and <strong>BATT-MON-EXP</strong></p><p>BATT-MON-01 and BATT-MON-EXP are a functional_similarity candidate. Evidence: 7, 8.</p></article><article class="candidate"><p><strong>BRAKE-CTRL-01</strong> and <strong>CAB-CTRL-01</strong></p><p>BRAKE-CTRL-01 and CAB-CTRL-01 are a functional_similarity candidate. Evidence: 9, 10.</p></article><article class="candidate"><p><strong>BRAKE-CTRL-01</strong> and <strong>DOOR-CTRL-01</strong></p><p>BRAKE-CTRL-01 and DOOR-CTRL-01 are a functional_similarity candidate. Evidence: 11, 12.</p></article><article class="candidate"><p><strong>BRAKE-CTRL-01</strong> and <strong>PIS-CTRL-01</strong></p><p>BRAKE-CTRL-01 and PIS-CTRL-01 are a functional_similarity candidate. Evidence: 13, 14, note-10.</p></article><article class="candidate"><p><strong>CAB-CTRL-01</strong> and <strong>DOOR-CTRL-01</strong></p><p>CAB-CTRL-01 and DOOR-CTRL-01 are a functional_similarity candidate. Evidence: 15, 16.</p></article><article class="candidate"><p><strong>CAB-CTRL-01</strong> and <strong>PIS-CTRL-01</strong></p><p>CAB-CTRL-01 and PIS-CTRL-01 are a functional_similarity candidate. Evidence: 17, 18, note-10.</p></article><article class="candidate"><p><strong>CAB-CU-01</strong> and <strong>PIS-CU-01</strong></p><p>CAB-CU-01 and PIS-CU-01 are a functional_similarity candidate. Evidence: 19, 20.</p></article><p class="meta">Showing 8 of 24.</p></section>
+<section><h2>Intentional differences</h2><p>Nordic-only parts. They are a variant choice, not a duplicate.</p><article class="separate"><p><strong>APC-750-24-ND</strong></p><p>Used only on REGIO-NORDIC. Kept as its own part, not offered as a generic substitute.</p></article><article class="separate"><p><strong>BRAKE-CTRL-ND</strong></p><p>Used only on REGIO-NORDIC. Kept as its own part, not offered as a generic substitute.</p></article><article class="separate"><p><strong>CAB-CTRL-ND</strong></p><p>Used only on REGIO-NORDIC. Kept as its own part, not offered as a generic substitute.</p></article><article class="separate"><p><strong>DISPLAY-15IN</strong></p><p>Used only on REGIO-NORDIC. Kept as its own part, not offered as a generic substitute.</p></article><article class="separate"><p><strong>FAN-AIR-ND</strong></p><p>Used only on REGIO-NORDIC. Kept as its own part, not offered as a generic substitute.</p></article><article class="separate"><p><strong>LED-DRV-ND</strong></p><p>Used only on REGIO-NORDIC. Kept as its own part, not offered as a generic substitute.</p></article><article class="separate"><p><strong>TEMP-SENS-06</strong></p><p>Used only on REGIO-NORDIC. Kept as its own part, not offered as a generic substitute.</p></article></section>
+<section><h2>Blocked</h2><p>Evidence disagrees, or lifecycle does not match. Nothing here was overwritten.</p><article class="blocker"><p><strong>BMU-027: 24 V DC, 48 V DC</strong></p><p>Engineering note J. Leroy on BMU-027 states both 24 V DC and 48 V DC. Both values were kept; neither was selected.</p></article><article class="blocker"><p><strong>CTRL-AIR-01: 24 V DC, 48 V DC</strong></p><p>Engineering note M. Bernard on CTRL-AIR-01 states both 24 V DC and 48 V DC. Both values were kept; neither was selected.</p></article><article class="blocker"><p><strong>PIS-DISPLAY-15: 24 V DC, 48 V DC</strong></p><p>Engineering note P. Dubois on PIS-DISPLAY-15 states both 24 V DC and 48 V DC. Both values were kept; neither was selected.</p></article><article class="blocker"><p><strong>PAX-COUNT-MOD-E: Prototype, Released</strong></p><p>PAX-COUNT-MOD-E is Prototype while peer counting assembly PCOUNT-M08 is Released. This is a lifecycle mismatch between counting modules.</p></article><article class="blocker"><p><strong>MAT-20001: OBSOLETE</strong></p><p>ERP material MAT-20001 has status OBSOLETE. Reported on its own; no PLM twin was invented.</p></article><article class="blocker"><p><strong>MAT-20002: OBSOLETE</strong></p><p>ERP material MAT-20002 has status OBSOLETE. Reported on its own; no PLM twin was invented.</p></article><article class="blocker"><p><strong>MAT-20004: OBSOLETE</strong></p><p>ERP material MAT-20004 has status OBSOLETE. Reported on its own; no PLM twin was invented.</p></article></section>
+<section><h2>Data issues</h2><p>Rows the pipeline refused or flagged. Separate from the question of identity.</p><article class="issue"><p><strong>Mapping noise (summary)</strong></p><p>Column-name mapping warnings, counted once per type — not one card per warning. empty_supplier: 165; missing_description: 308.</p></article><article class="issue"><p><strong>invalid_quantity: BOM-0031, quarantine:1</strong></p><p>Quarantined source row 32 (BOM-0031) has unparseable quantity &#x27;one&#x27;. Unparseable quantity: &#x27;one&#x27;</p><p class="meta">bom_export.csv row 32</p></article><article class="issue"><p><strong>duplicate_bom_key: 37, 136, PAX-DISP-15</strong></p><p>Duplicate normalized BOM key REGIO-COMFORT / PAX-INFO-M01 / PAX-DISP-15 appears 2 times (source ids 37, 136; raw refs: PAX-DISP-15).</p><p class="meta">bom_export.csv row 39; bom_export.csv row 138</p></article><article class="issue"><p><strong>duplicate_bom_key: 54, 137, CTRL-AIR-01</strong></p><p>Duplicate normalized BOM key REGIO-NORDIC / HVAC-N01 / CTRL-AIR-01 appears 2 times (source ids 54, 137; raw refs: CTRL-AIR-01, CTRL-HVAC-001).</p><p class="meta">bom_export.csv row 56; bom_export.csv row 139</p></article><article class="issue"><p><strong>duplicate_bom_key: 1, 135, CTRL-AIR-01</strong></p><p>Duplicate normalized BOM key REGIO-STD / HVAC-M01 / CTRL-AIR-01 appears 2 times (source ids 1, 135; raw refs: CTRL-AIR-01, CTRL-AIR01).</p><p class="meta">bom_export.csv row 2; bom_export.csv row 137</p></article><article class="issue"><p><strong>uom_aliased: CTRL-AIR-01, EA, pcs</strong></p><p>Component CTRL-AIR-01 uses raw UOMs EA, pcs that all normalize to EA. Informational alias, not a conflict.</p></article><article class="issue"><p><strong>uom_aliased: PAX-DISP-15, pcs, units</strong></p><p>Component PAX-DISP-15 uses raw UOMs pcs, units that all normalize to EA. Informational alias, not a conflict.</p></article><article class="issue"><p><strong>uom_aliased: PIS-MOUNT-15, pcs, units</strong></p><p>Component PIS-MOUNT-15 uses raw UOMs pcs, units that all normalize to EA. Informational alias, not a conflict.</p></article><p class="meta">Showing 8 of 14.</p></section>
+  <p class="meta">Generated 2026-09-23 20:47 UTC. This page is a preview from normalized references, not from an accepted canonical model. ERP material ids are not merged into PLM part numbers.</p>
+
+  <footer>
+    <p>Regenerate every page with <code>python -m app.backend.cli report</code>.</p>
+  </footer>
+</body>
+</html>

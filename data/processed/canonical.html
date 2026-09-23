@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cognyx — canonical</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+      max-width: 820px;
+      margin: 1.5rem auto 4rem;
+      padding: 0 1.25rem;
+      color: #1c1917;
+      background: #f7f6f3;
+      line-height: 1.45;
+    }
+    h1 { font-size: 1.7rem; font-weight: 650; margin: 0.6rem 0 0.4rem; }
+    h2 { font-size: 1.05rem; margin: 0; }
+    p { margin: 0.3rem 0; }
+    a { color: #1e3a8a; }
+    nav {
+      display: flex; flex-wrap: wrap; gap: 0.4rem;
+      margin-bottom: 0.5rem;
+    }
+    nav a {
+      text-decoration: none; color: #44403c;
+      background: #fff; border: 1px solid #e7e5e4;
+      border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.9rem;
+    }
+    nav a.active { background: #1c1917; color: #fff; border-color: #1c1917; }
+    .lede { color: #44403c; margin-bottom: 1rem; }
+    .counts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; font-size: 0.9rem; }
+    .counts span, .badge {
+      background: #fff; border: 1px solid #e7e5e4;
+      border-radius: 999px; padding: 0.15rem 0.7rem; font-size: 0.8rem;
+    }
+    .badge.done { background: #ecfccb; border-color: #65a30d; color: #3f6212; }
+    .badge.preview { background: #fef9c3; border-color: #ca8a04; color: #854d0e; }
+    .badge.missing { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+    .badge.later { background: #e0e7ff; border-color: #6366f1; color: #3730a3; }
+    ol.flow { list-style: none; padding: 0; margin: 1rem 0; }
+    ol.flow li {
+      background: #fff; border: 1px solid #e7e5e4; border-radius: 10px;
+      padding: 0.8rem 1rem; margin: 0;
+    }
+    ol.flow li + li { margin-top: 0.45rem; }
+    ol.flow .step-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+    ol.flow p { color: #44403c; font-size: 0.95rem; }
+    table {
+      width: 100%; border-collapse: collapse; background: #fff;
+      border: 1px solid #e7e5e4; border-radius: 8px; overflow: hidden;
+      margin-top: 0.5rem; font-size: 0.92rem;
+    }
+    th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid #f5f5f4; vertical-align: top; }
+    th { background: #fafaf9; font-weight: 600; }
+    section { margin-top: 1.6rem; }
+    .note {
+      background: #fff; border: 1px solid #e7e5e4; border-radius: 8px;
+      padding: 0.75rem 1rem; margin-top: 0.8rem;
+    }
+    footer { margin-top: 2.5rem; color: #78716c; font-size: 0.85rem; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+    article {
+      background: #fff; border: 1px solid #e7e5e4;
+      border-left: 4px solid #44403c;
+      border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.6rem;
+    }
+    article.reuse { border-left-color: #3f6212; }
+    article.candidate { border-left-color: #a16207; }
+    article.separate { border-left-color: #1e40af; }
+    article.blocker { border-left-color: #b91c1c; }
+    article.issue { border-left-color: #9a3412; }
+    .meta { color: #57534e; font-size: 0.85rem; margin-top: 0.25rem; }
+    
+  </style>
+</head>
+<body>
+  <nav><a href="workflow.html">Workflow</a><a href="normalize.html">1 · Normalize</a><a href="proposals.html">2 · Proposals</a><a href="canonical.html" class="active">3 · Canonical</a><a href="compare.html">4 · Compare</a><a href="report.html">Preview · Reuse</a></nav>
+  
+  <h1>Canonical BOM</h1>
+  <p class="lede">Accepted identity clusters share one canonical id. BOM lines whose identity is still pending or was rejected stay unresolved and are not in the authoritative BOM.</p>
+  <div class="counts">
+    <span>0 accepted identity clusters</span>
+    <span>130 canonical BOM rows</span>
+    <span>7 unresolved identity lines</span>
+  </div>
+  <section>
+    <h2>Accepted identity clusters</h2>
+    <p>These source references share a canonical component after a human accept.</p>
+    <table><thead><tr><th>Canonical id</th><th>Normalized reference</th><th>Source references</th></tr></thead><tbody><tr><td colspan="3">Nothing to show.</td></tr></tbody></table>
+  </section>
+  <section>
+    <h2>Unresolved because of identity</h2>
+    <p>Pending or rejected identity keeps these source BOM lines out of <code>bom_relationship</code>.</p>
+    <table><thead><tr><th>BOM line id</th><th>Variant</th><th>Component ref</th><th>Reason</th></tr></thead><tbody><tr><td>1</td><td>REGIO-STD</td><td>CTRL-AIR-01</td><td>identity_pending</td></tr><tr><td>28</td><td>REGIO-COMFORT</td><td>CTRL-AIR01</td><td>identity_pending</td></tr><tr><td>54</td><td>REGIO-NORDIC</td><td>CTRL-HVAC-001</td><td>identity_pending</td></tr><tr><td>81</td><td>REGIO-HC</td><td>CTRL-AIR-O1</td><td>identity_pending</td></tr><tr><td>108</td><td>REGIO-EXPORT</td><td>CTRL-AIR-01</td><td>identity_pending</td></tr><tr><td>135</td><td>REGIO-STD</td><td>CTRL-AIR01</td><td>identity_pending</td></tr><tr><td>137</td><td>REGIO-NORDIC</td><td>CTRL-AIR-01</td><td>identity_pending</td></tr></tbody></table>
+  </section>
+
+  <footer>
+    <p>Regenerate every page with <code>python -m app.backend.cli report</code>.</p>
+  </footer>
+</body>
+</html>

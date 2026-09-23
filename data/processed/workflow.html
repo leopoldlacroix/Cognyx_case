@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cognyx — workflow</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+      max-width: 820px;
+      margin: 1.5rem auto 4rem;
+      padding: 0 1.25rem;
+      color: #1c1917;
+      background: #f7f6f3;
+      line-height: 1.45;
+    }
+    h1 { font-size: 1.7rem; font-weight: 650; margin: 0.6rem 0 0.4rem; }
+    h2 { font-size: 1.05rem; margin: 0; }
+    p { margin: 0.3rem 0; }
+    a { color: #1e3a8a; }
+    nav {
+      display: flex; flex-wrap: wrap; gap: 0.4rem;
+      margin-bottom: 0.5rem;
+    }
+    nav a {
+      text-decoration: none; color: #44403c;
+      background: #fff; border: 1px solid #e7e5e4;
+      border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.9rem;
+    }
+    nav a.active { background: #1c1917; color: #fff; border-color: #1c1917; }
+    .lede { color: #44403c; margin-bottom: 1rem; }
+    .counts { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; font-size: 0.9rem; }
+    .counts span, .badge {
+      background: #fff; border: 1px solid #e7e5e4;
+      border-radius: 999px; padding: 0.15rem 0.7rem; font-size: 0.8rem;
+    }
+    .badge.done { background: #ecfccb; border-color: #65a30d; color: #3f6212; }
+    .badge.preview { background: #fef9c3; border-color: #ca8a04; color: #854d0e; }
+    .badge.missing { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+    .badge.later { background: #e0e7ff; border-color: #6366f1; color: #3730a3; }
+    ol.flow { list-style: none; padding: 0; margin: 1rem 0; }
+    ol.flow li {
+      background: #fff; border: 1px solid #e7e5e4; border-radius: 10px;
+      padding: 0.8rem 1rem; margin: 0;
+    }
+    ol.flow li + li { margin-top: 0.45rem; }
+    ol.flow .step-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+    ol.flow p { color: #44403c; font-size: 0.95rem; }
+    table {
+      width: 100%; border-collapse: collapse; background: #fff;
+      border: 1px solid #e7e5e4; border-radius: 8px; overflow: hidden;
+      margin-top: 0.5rem; font-size: 0.92rem;
+    }
+    th, td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid #f5f5f4; vertical-align: top; }
+    th { background: #fafaf9; font-weight: 600; }
+    section { margin-top: 1.6rem; }
+    .note {
+      background: #fff; border: 1px solid #e7e5e4; border-radius: 8px;
+      padding: 0.75rem 1rem; margin-top: 0.8rem;
+    }
+    footer { margin-top: 2.5rem; color: #78716c; font-size: 0.85rem; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+    article {
+      background: #fff; border: 1px solid #e7e5e4;
+      border-left: 4px solid #44403c;
+      border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.6rem;
+    }
+    article.reuse { border-left-color: #3f6212; }
+    article.candidate { border-left-color: #a16207; }
+    article.separate { border-left-color: #1e40af; }
+    article.blocker { border-left-color: #b91c1c; }
+    article.issue { border-left-color: #9a3412; }
+    .meta { color: #57534e; font-size: 0.85rem; margin-top: 0.25rem; }
+    
+  </style>
+</head>
+<body>
+  <nav><a href="workflow.html" class="active">Workflow</a><a href="normalize.html">1 · Normalize</a><a href="proposals.html">2 · Proposals</a><a href="canonical.html">3 · Canonical</a><a href="compare.html">4 · Compare</a><a href="report.html">Preview · Reuse</a></nav>
+  
+  <h1>How the pipeline fits together</h1>
+  <p class="lede">What is already in the database, what this preview report is doing, and what a later version still needs. Use this page while you talk. Open Normalize and Proposals to check the rows.</p>
+  <ol class="flow"><li><div class="step-head"><h2>1. Ingest</h2><span class="badge done">Done</span></div><p>6 source files, 137 BOM lines, raw values kept.</p></li><li><div class="step-head"><h2>2. Validate</h2><span class="badge done">Done</span></div><p>1 row quarantined. Soft warnings exist, many of them from column-name noise.</p></li><li><div class="step-head"><h2>3. Normalize</h2><span class="badge done">Done</span></div><p>Aliases, units, and supplier names are cleaned beside the raw value. See the Normalize page.</p></li><li><div class="step-head"><h2>4. Source entities</h2><span class="badge done">Done</span></div><p>133 components, 37 assemblies, 24 suppliers.</p></li><li><div class="step-head"><h2>5. Reconciliation proposals</h2><span class="badge done">Done</span></div><p>57 component proposals. 57 are still pending. No one has accepted or rejected them. See the Proposals page.</p></li><li><div class="step-head"><h2>6. Human decision</h2><span class="badge missing">Not yet</span></div><p>Accept, reject, or redirect a proposal. This is Phase 3. The decision is stored. It does not overwrite the source row.</p></li><li><div class="step-head"><h2>7. Canonical model</h2><span class="badge done">Done</span></div><p>85 canonical component rows exist.</p></li><li><div class="step-head"><h2>8. Reuse snapshot</h2><span class="badge preview">Preview</span></div><p>The Reuse page is a preview from normalized references and notes. It is not yet computed from an accepted canonical BOM.</p></li><li><div class="step-head"><h2>9. Compare and explain</h2><span class="badge later">Later</span></div><p>Phase 4 adds variant-versus-variant and assembly overlap. Phase 5 puts a plain explanation on every row and finishes the edge cases.</p></li><li><div class="step-head"><h2>10. Interactive workbench</h2><span class="badge later">Later version</span></div><p>Filters, clicking a row, and deciding on screen. Not part of this PoC. It needs the canonical model first.</p></li></ol>
+  <section>
+    <h2>What to say</h2>
+    <div class="note">
+      <p><strong>Accomplished.</strong> Messy PLM, ERP, and engineering notes are ingested, cleaned, and turned into reviewable proposals. Identity, similarity, and Nordic-only parts stay separate.</p>
+      <p><strong>Missing.</strong> A canonical model, and a human decision that fills it. Until then, “already reused” means “same normalized reference,” not “an engineer accepted the match.”</p>
+      <p><strong>Later.</strong> Comparison across variants, fuller explanations, then a screen where someone can filter and decide. Not required to show the pilot story.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Regenerate every page with <code>python -m app.backend.cli report</code>.</p>
+  </footer>
+</body>
+</html>

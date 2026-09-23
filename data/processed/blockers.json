@@ -1,0 +1,138 @@
+[
+  {
+    "issue_type": "conflicting_evidence",
+    "entity_ref": "BMU-027",
+    "attribute": "operating_voltage",
+    "values": [
+      "24 V DC",
+      "48 V DC"
+    ],
+    "sources": [
+      {
+        "source_type": "engineering_note",
+        "source_id": "J. Leroy",
+        "value": "24 V DC"
+      },
+      {
+        "source_type": "engineering_note",
+        "source_id": "J. Leroy",
+        "value": "48 V DC"
+      }
+    ],
+    "explanation": "Engineering note J. Leroy on BMU-027 states both 24 V DC and 48 V DC. Both values were kept; neither was selected."
+  },
+  {
+    "issue_type": "conflicting_evidence",
+    "entity_ref": "CTRL-AIR-01",
+    "attribute": "operating_voltage",
+    "values": [
+      "24 V DC",
+      "48 V DC"
+    ],
+    "sources": [
+      {
+        "source_type": "engineering_note",
+        "source_id": "M. Bernard",
+        "value": "24 V DC"
+      },
+      {
+        "source_type": "engineering_note",
+        "source_id": "M. Bernard",
+        "value": "48 V DC"
+      }
+    ],
+    "explanation": "Engineering note M. Bernard on CTRL-AIR-01 states both 24 V DC and 48 V DC. Both values were kept; neither was selected."
+  },
+  {
+    "issue_type": "conflicting_evidence",
+    "entity_ref": "PIS-DISPLAY-15",
+    "attribute": "operating_voltage",
+    "values": [
+      "24 V DC",
+      "48 V DC"
+    ],
+    "sources": [
+      {
+        "source_type": "engineering_note",
+        "source_id": "P. Dubois",
+        "value": "24 V DC"
+      },
+      {
+        "source_type": "engineering_note",
+        "source_id": "P. Dubois",
+        "value": "48 V DC"
+      }
+    ],
+    "explanation": "Engineering note P. Dubois on PIS-DISPLAY-15 states both 24 V DC and 48 V DC. Both values were kept; neither was selected."
+  },
+  {
+    "issue_type": "lifecycle_mismatch",
+    "entity_ref": "PAX-COUNT-MOD-E",
+    "attribute": "lifecycle",
+    "values": [
+      "Prototype",
+      "Released"
+    ],
+    "sources": [
+      {
+        "source_type": "plm_assembly",
+        "source_id": "PAX-COUNT-MOD-E",
+        "value": "Prototype"
+      },
+      {
+        "source_type": "plm_assembly",
+        "source_id": "PCOUNT-M08",
+        "value": "Released"
+      }
+    ],
+    "explanation": "PAX-COUNT-MOD-E is Prototype while peer counting assembly PCOUNT-M08 is Released. This is a lifecycle mismatch between counting modules."
+  },
+  {
+    "issue_type": "erp_lifecycle",
+    "entity_ref": "MAT-20001",
+    "attribute": "status",
+    "values": [
+      "OBSOLETE"
+    ],
+    "sources": [
+      {
+        "source_type": "erp_material",
+        "source_id": "MAT-20001",
+        "value": "OBSOLETE"
+      }
+    ],
+    "explanation": "ERP material MAT-20001 has status OBSOLETE. Reported on its own; no PLM twin was invented."
+  },
+  {
+    "issue_type": "erp_lifecycle",
+    "entity_ref": "MAT-20002",
+    "attribute": "status",
+    "values": [
+      "OBSOLETE"
+    ],
+    "sources": [
+      {
+        "source_type": "erp_material",
+        "source_id": "MAT-20002",
+        "value": "OBSOLETE"
+      }
+    ],
+    "explanation": "ERP material MAT-20002 has status OBSOLETE. Reported on its own; no PLM twin was invented."
+  },
+  {
+    "issue_type": "erp_lifecycle",
+    "entity_ref": "MAT-20004",
+    "attribute": "status",
+    "values": [
+      "OBSOLETE"
+    ],
+    "sources": [
+      {
+        "source_type": "erp_material",
+        "source_id": "MAT-20004",
+        "value": "OBSOLETE"
+      }
+    ],
+    "explanation": "ERP material MAT-20004 has status OBSOLETE. Reported on its own; no PLM twin was invented."
+  }
+]
