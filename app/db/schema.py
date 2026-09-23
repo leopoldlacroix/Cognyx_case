@@ -489,4 +489,85 @@ def create_schema(conn: sqlite3.Connection) -> None:
         ON supplier_reconciliation(reconciliation_run_id)
     """)
 
+    # ============================================================
+    # CANONICAL ENTITY TABLES (Phase 3)
+    # FKs from reconciliation component_id / assembly_id / supplier_id
+    # stay omitted — SQLite cannot add them without a rebuild; Phase 2
+    # left them off on purpose.
+    # ============================================================
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS component (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            category TEXT,
+            normalized_reference TEXT,
+            created_at DATETIME NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS assembly (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            category TEXT,
+            normalized_reference TEXT,
+            created_at DATETIME NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS supplier (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            country TEXT,
+            normalized_reference TEXT,
+            created_at DATETIME NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS variant (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            train_family TEXT,
+            market TEXT,
+            climate_class TEXT,
+            capacity_class TEXT,
+            voltage_system TEXT,
+            normalized_reference TEXT,
+            created_at DATETIME NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bom_relationship (
+            id INTEGER PRIMARY KEY,
+            variant_id INTEGER NOT NULL,
+            assembly_id INTEGER NOT NULL,
+            component_id INTEGER NOT NULL,
+            quantity REAL,
+            unit TEXT,
+            source_bom_line_id INTEGER,
+            created_at DATETIME NOT NULL,
+            UNIQUE(variant_id, assembly_id, component_id, source_bom_line_id)
+        )
+    """)
+
+    # technical_fact.status: OBSERVED | VALIDATED | CONFLICTING
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS technical_fact (
+            id INTEGER PRIMARY KEY,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER NOT NULL,
+            attribute TEXT NOT NULL,
+            value TEXT,
+            unit TEXT,
+            source_type TEXT,
+            source_id TEXT,
+            confidence REAL,
+            status TEXT NOT NULL,
+            created_at DATETIME NOT NULL
+        )
+    """)
+
     conn.commit()

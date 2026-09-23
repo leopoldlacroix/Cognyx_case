@@ -164,14 +164,22 @@ def test_supplier_reconciliation_table(conn):
     assert "idx_supplier_reconciliation_run" in indexes
 
 
-def test_canonical_tables_not_yet_created(conn):
-    """Phase 3 canonical tables are absent; reconciliation omits FKs to them."""
+def test_canonical_tables_created_without_recon_fks(conn):
+    """Phase 3 canonical tables exist; reconciliation still omits FKs to them."""
     tables = {
         row[0]
         for row in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'"
         ).fetchall()
     }
-    assert "component" not in tables
-    assert "assembly" not in tables
-    assert "supplier" not in tables
+    assert "component" in tables
+    assert "assembly" in tables
+    assert "supplier" in tables
+    assert "variant" in tables
+    assert "bom_relationship" in tables
+    assert "technical_fact" in tables
+
+    # No FK from component_reconciliation.component_id → component
+    fks = conn.execute("PRAGMA foreign_key_list(component_reconciliation)").fetchall()
+    fk_tables = {row[2] for row in fks}
+    assert "component" not in fk_tables
