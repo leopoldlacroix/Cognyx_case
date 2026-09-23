@@ -183,6 +183,8 @@ def test_proposals_page_leaves_canonical_id_empty(conn):
     page = render_proposals(conn)
     assert "CTRL-AIR-01" in page
     assert "PENDING" in page
+    assert 'action="/review/decide"' in page
+    assert "Accept" in page
     # Canonical tables exist (Phase 3); empty component_id still shows as em dash.
     assert "canonical table exists" in page or "no canonical table" in page
     assert "—" in page
