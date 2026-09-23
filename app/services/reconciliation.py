@@ -31,28 +31,41 @@ def record_reconciliation(
     conn: sqlite3.Connection,
     entity_type: str,
     source_entity_id: int,
-    status: str,
-    method: str,
-    confidence: float,
-    rationale: str,
-    evidence: Dict[str, Any],
+    canonical_id: Optional[int] = None,
+    status: str = "PENDING",
+    method: Optional[str] = None,
+    confidence: Optional[float] = None,
+    rationale: Optional[str] = None,
+    evidence: Optional[Dict[str, Any]] = None,
     reconciliation_run_id: Optional[int] = None,
+    decided_at: Optional[str] = None,
+    decided_by: Optional[str] = None,
 ) -> Optional[int]:
-    """Insert a component or supplier reconciliation row.
+    """Insert one row into the entity-specific reconciliation table.
+
+    entity_type selects component_reconciliation / assembly_reconciliation /
+    supplier_reconciliation. Pairwise identity evidence (two source entities)
+    goes in evidence_json — the table models source→canonical, not source↔source.
 
     Idempotent for the same source entity + method + evidence pair.
     Returns inserted row id, or None if a duplicate already exists.
-    component_id / supplier_id stay NULL (canonical tables do not exist yet).
+    canonical_* id columns stay NULL when canonical tables do not exist yet.
     """
-    evidence_str = _evidence_json(evidence)
+    evidence_str = _evidence_json(evidence or {})
     now = _now()
 
     if entity_type == "component":
         table = "component_reconciliation"
         fk_col = "source_component_id"
+        canonical_col = "component_id"
+    elif entity_type == "assembly":
+        table = "assembly_reconciliation"
+        fk_col = "source_assembly_id"
+        canonical_col = "assembly_id"
     elif entity_type == "supplier":
         table = "supplier_reconciliation"
         fk_col = "source_supplier_id"
+        canonical_col = "supplier_id"
     else:
         raise ValueError(f"Unsupported entity_type: {entity_type!r}")
 
@@ -60,7 +73,7 @@ def record_reconciliation(
         f"""
         SELECT id FROM {table}
         WHERE {fk_col} = ?
-          AND method = ?
+          AND method IS ?
           AND evidence_json = ?
         """,
         (source_entity_id, method, evidence_str),
@@ -71,12 +84,13 @@ def record_reconciliation(
     cursor = conn.execute(
         f"""
         INSERT INTO {table} (
-            {fk_col}, status, method, confidence, rationale,
-            evidence_json, reconciliation_run_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            {fk_col}, {canonical_col}, status, method, confidence, rationale,
+            evidence_json, reconciliation_run_id, created_at, decided_at, decided_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             source_entity_id,
+            canonical_id,
             status,
             method,
             confidence,
@@ -84,6 +98,8 @@ def record_reconciliation(
             evidence_str,
             reconciliation_run_id,
             now,
+            decided_at,
+            decided_by,
         ),
     )
     return cursor.lastrowid

@@ -259,6 +259,71 @@ def test_record_reconciliation_component(conn):
     assert again is None
 
 
+def test_record_reconciliation_extended_signature(conn):
+    """canonical_id / decided_at / decided_by optional; confidence stays REAL."""
+    from app.services.reconciliation import record_reconciliation
+
+    sid = _insert_source_component(
+        conn,
+        source_system="PLM",
+        source_reference="Y-1",
+        normalized_reference="Y-1",
+    )
+    decided = _now()
+    rid = record_reconciliation(
+        conn,
+        entity_type="component",
+        source_entity_id=sid,
+        canonical_id=None,
+        status="ASSESSED",
+        method="MANUAL",
+        confidence=0.75,
+        rationale="reviewed",
+        evidence={"relationship": "identity"},
+        decided_at=decided,
+        decided_by="tester",
+    )
+    conn.commit()
+    assert rid is not None
+    row = conn.execute(
+        "SELECT * FROM component_reconciliation WHERE id = ?", (rid,)
+    ).fetchone()
+    assert row["component_id"] is None
+    assert row["status"] == "ASSESSED"
+    assert row["method"] == "MANUAL"
+    assert isinstance(row["confidence"], float)
+    assert row["confidence"] == pytest.approx(0.75)
+    assert row["decided_at"] == decided
+    assert row["decided_by"] == "tester"
+
+
+def test_reconciliation_tables_and_confidence_numeric(conn):
+    """Blueprint §3.6/§3.7 tables exist; confidence column is REAL/numeric."""
+    tables = {
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    assert "component_reconciliation" in tables
+    assert "assembly_reconciliation" in tables
+    assert "supplier_reconciliation" in tables
+    assert "reconciliation_run" in tables
+
+    # No FK to missing canonical component table
+    fk_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' "
+        "AND name='component_reconciliation'"
+    ).fetchone()["sql"]
+    assert "REFERENCES component(" not in fk_sql
+
+    conf_type = {
+        row[1]: row[2]
+        for row in conn.execute("PRAGMA table_info(component_reconciliation)")
+    }
+    assert conf_type["confidence"].upper() == "REAL"
+
+
 # ---------------------------------------------------------------------------
 # Task 2.4.2 — supplier identities
 # ---------------------------------------------------------------------------
