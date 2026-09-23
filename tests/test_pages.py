@@ -299,3 +299,85 @@ def test_compare_page_lexicographic_default_without_std_nordic(conn):
     not_hidden = [m for m in visible if "hidden" not in m.group(1)]
     assert len(not_hidden) == 1
     assert not_hidden[0].group(2) == "pair-REGIO-COMFORT-REGIO-EXPORT"
+
+
+def test_report_data_issue_includes_source_file_and_row(conn):
+    """Rendered data-issue cards name the fixture file and source row."""
+    from app.services.report import build_snapshot, render_report_html
+
+    sf = _source_file(conn, "bom_export.csv")
+    conn.execute(
+        """
+        INSERT INTO quarantine (source_file_id, source_row, raw_data, rejection_reason, created_at)
+        VALUES (?, 32, ?, 'Unparseable quantity', ?)
+        """,
+        (
+            sf,
+            json.dumps({"component_ref": "HVAC-FILTER-01", "quantity": "one"}),
+            _now(),
+        ),
+    )
+    conn.commit()
+
+    page = render_report_html(build_snapshot(conn))
+    assert "Already reused" in page
+    assert "Worth a look" in page
+    assert "Intentional differences" in page
+    assert "Blocked" in page
+    assert "Data issues" in page
+    assert "bom_export.csv" in page
+    assert "32" in page
+    assert "ground_truth" not in page
+
+
+def test_analyze_compare_writes_json_with_default_pair(conn, db_path, tmp_path, monkeypatch):
+    """analyze compare writes compare.json with default_pair and assembly refs."""
+    from app.backend import cli as cli_mod
+    from app.services.canonicalization import build_canonical_model
+
+    sf = _source_file(conn, "bom_export.csv")
+    _insert_variant(conn, sf, "REGIO-STD")
+    _insert_variant(conn, sf, "REGIO-NORDIC")
+    _insert_source_assembly(conn, "HVAC-M01")
+    _insert_source_component(conn, "CTRL-AIR-01")
+    _insert_bom_line(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-STD",
+        assembly_ref="HVAC-M01",
+        component_ref="CTRL-AIR-01",
+        source_row=1,
+    )
+    _insert_bom_line(
+        conn,
+        source_file_id=sf,
+        variant_ref="REGIO-NORDIC",
+        assembly_ref="HVAC-M01",
+        component_ref="CTRL-AIR-01",
+        source_row=2,
+    )
+    build_canonical_model(conn)
+    conn.commit()
+    conn.close()
+
+    processed = tmp_path / "processed"
+    processed.mkdir()
+    monkeypatch.setattr(cli_mod, "PROCESSED_DIR", processed)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["cli", "analyze", "compare", "--db", db_path],
+    )
+    cli_mod.main()
+
+    out = processed / "compare.json"
+    assert out.is_file()
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["default_pair"] == ["REGIO-STD", "REGIO-NORDIC"]
+    assert payload["pairs"]
+    assembly_refs = [
+        a["assembly_ref"]
+        for pair in payload["pairs"]
+        for a in pair.get("assemblies") or []
+    ]
+    assert "HVAC-M01" in assembly_refs
+    assert "ground_truth" not in out.read_text(encoding="utf-8")

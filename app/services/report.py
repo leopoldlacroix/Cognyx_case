@@ -136,7 +136,7 @@ def render_report_html(snapshot: Dict[str, Any]) -> str:
             lambda item: (
                 f"<strong>{e(item['title'])}</strong>",
                 e(item["explanation"]),
-                "",
+                _records_trail_html(item.get("records") or []),
             ),
         ),
     ]
@@ -252,15 +252,35 @@ def _section_blockers(conn: sqlite3.Connection) -> List[Dict[str, str]]:
     return items
 
 
-def _section_data_issues(conn: sqlite3.Connection) -> List[Dict[str, str]]:
+def _section_data_issues(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
     try:
         from app.services.quality import data_quality_issues
 
         payload = data_quality_issues(conn)
         rows = payload.get("issues") or []
+        warning_summary = payload.get("ingestion_warning_summary") or {}
     except Exception:
         return _data_issues(conn)
-    items = []
+    items: List[Dict[str, Any]] = []
+    mapping_parts = []
+    for wtype, info in sorted(warning_summary.items()):
+        if not isinstance(info, dict):
+            continue
+        if info.get("mapping_noise"):
+            mapping_parts.append(f"{wtype}: {info.get('count', 0)}")
+    if mapping_parts:
+        items.append(
+            {
+                "title": "Mapping noise (summary)",
+                "explanation": (
+                    "Column-name mapping warnings, counted once per type — "
+                    "not one card per warning. "
+                    + "; ".join(mapping_parts)
+                    + "."
+                ),
+                "records": [],
+            }
+        )
     for row in rows:
         refs = row.get("refs") or []
         label = ", ".join(str(r) for r in refs[:3]) if refs else row.get("issue_type", "issue")
@@ -268,9 +288,28 @@ def _section_data_issues(conn: sqlite3.Connection) -> List[Dict[str, str]]:
             {
                 "title": f"{row.get('issue_type')}: {label}",
                 "explanation": row.get("explanation") or "",
+                "records": list(row.get("records") or []),
             }
         )
     return items
+
+
+def _records_trail_html(records: List[Dict[str, Any]]) -> str:
+    """Escape source_file / source_row trail for the data-issues meta line."""
+    e = html.escape
+    if not records:
+        return ""
+    bits = []
+    for rec in records:
+        file_name = rec.get("source_file")
+        source_row = rec.get("source_row")
+        if file_name is None and source_row is None:
+            continue
+        bits.append(
+            f"{e(str(file_name) if file_name is not None else '—')} "
+            f"row {e(str(source_row) if source_row is not None else '—')}"
+        )
+    return "; ".join(bits)
 
 
 def _variant_names(conn: sqlite3.Connection) -> Dict[str, str]:

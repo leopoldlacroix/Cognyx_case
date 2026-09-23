@@ -70,11 +70,11 @@ def main():
     decide_parser.add_argument('--reviewer', default='operator')
     decide_parser.add_argument('--db', help='Database path for this command')
 
-    # Analyze: reuse | candidates | blockers | quality
+    # Analyze: reuse | candidates | blockers | quality | compare
     analyze_parser = subparsers.add_parser('analyze', help='Write analysis JSON reports')
     analyze_parser.add_argument(
         'report_kind',
-        choices=['reuse', 'candidates', 'blockers', 'quality'],
+        choices=['reuse', 'candidates', 'blockers', 'quality', 'compare'],
         help='Which report to write',
     )
     analyze_parser.add_argument('--db', help='Database path for this command')
@@ -204,17 +204,41 @@ def main():
 
             data = blockers(conn)
             out_path = PROCESSED_DIR / 'blockers.json'
-        else:
+        elif kind == 'quality':
             from app.services.quality import data_quality_issues
 
             data = data_quality_issues(conn)
             out_path = PROCESSED_DIR / 'data_quality.json'
+        else:
+            from app.services.analysis import all_variant_pairs, compare_variants
+            from app.services.canonicalization import build_canonical_model
+
+            build_canonical_model(conn)
+            lex_pairs = all_variant_pairs(conn)
+            variant_refs = {a for a, b in lex_pairs} | {b for a, b in lex_pairs}
+            if "REGIO-STD" in variant_refs and "REGIO-NORDIC" in variant_refs:
+                default_pair = ["REGIO-STD", "REGIO-NORDIC"]
+            elif lex_pairs:
+                default_pair = [lex_pairs[0][0], lex_pairs[0][1]]
+            else:
+                default_pair = []
+            pair_results = []
+            for lex_left, lex_right in lex_pairs:
+                if {lex_left, lex_right} == {"REGIO-STD", "REGIO-NORDIC"}:
+                    left_ref, right_ref = "REGIO-STD", "REGIO-NORDIC"
+                else:
+                    left_ref, right_ref = lex_left, lex_right
+                pair_results.append(compare_variants(conn, left_ref, right_ref))
+            data = {"default_pair": default_pair, "pairs": pair_results}
+            out_path = PROCESSED_DIR / 'compare.json'
 
         out_path.write_text(json.dumps(data, indent=2, default=str), encoding='utf-8')
         if isinstance(data, list):
             count = len(data)
         elif isinstance(data, dict) and 'issues' in data:
             count = len(data['issues'])
+        elif isinstance(data, dict) and 'pairs' in data:
+            count = len(data['pairs'])
         else:
             count = 1
         print(f"{out_path} ({count} rows)")
