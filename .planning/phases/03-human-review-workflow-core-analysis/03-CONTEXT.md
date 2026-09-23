@@ -2,9 +2,9 @@
 
 **Date:** 2026-09-23
 **Discovery:** Level 0. No new libraries. Work extends the existing Python, SQLite, pytest, and CLI pipeline.
-**Interface:** CLI plus JSON under `data/processed/`. Web UI and HTTP endpoints stay out of scope (ROADMAP out-of-scope, STATE.md).
+**Interface:** One static HTML page for the client demo, plus CLI. No web framework and no multi-screen workbench.
 
-Roadmap success criteria that say "click Accept" or "open the reconciler" mean the same behaviors through CLI commands and persisted report rows.
+`python -m app.backend.cli report` writes `data/processed/report.html`. That page is the PoC surface (already reused, worth a look, intentional differences, blocked, data issues). Phase 3 keeps those five headings and fills them from the canonical analysis once accept/reject and the canonical BOM exist. JSON under `data/processed/` can sit beside the HTML. Roadmap success criteria that say "click Accept" mean a CLI decision that the next report run reflects.
 
 ## What Phase 3 must build
 
