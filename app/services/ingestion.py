@@ -13,6 +13,12 @@ from typing import Any, Dict, List, Optional
 
 from app.db.connection import get_connection
 from app.services.validation import validate_hard, check_row_structure, check_soft_validation
+from app.services.normalization import (
+    normalize_reference,
+    normalize_description,
+    normalize_uom,
+    normalize_supplier,
+)
 
 
 def compute_file_hash(file_path: Path) -> str:
@@ -144,7 +150,7 @@ def ingest_csv_file(
 
             # Build insert values
             insert_values = {'source_file_id': source_file_id, 'source_row': source_row}
-            
+
             for csv_col, db_col in column_map.items():
                 value = row.get(csv_col)
                 # Store NULL for missing optional fields, not empty string
@@ -152,6 +158,9 @@ def ingest_csv_file(
                     insert_values[db_col] = None
                 else:
                     insert_values[db_col] = value
+
+            # Apply normalization for fields that have _normalized counterparts
+            _apply_normalization(insert_values, table_name, row)
             
             # Insert into target table
             columns = list(insert_values.keys())
@@ -398,3 +407,39 @@ def get_warnings(
             ORDER BY created_at
         """).fetchall()
     return [dict(r) for r in rows]
+
+
+def _apply_normalization(
+    insert_values: Dict[str, Any],
+    table_name: str,
+    raw_row: Dict[str, Any]
+) -> None:
+    """Apply normalization to produce *_normalized values for supported tables."""
+    if table_name == 'plm_bom_line':
+        insert_values['variant_ref_normalized'] = normalize_reference(raw_row.get('variant_ref'))
+        insert_values['assembly_ref_normalized'] = normalize_reference(raw_row.get('assembly_ref'))
+        insert_values['component_ref_normalized'] = normalize_reference(raw_row.get('component_ref'))
+        insert_values['description_normalized'] = normalize_description(raw_row.get('description_raw'))
+        insert_values['uom_normalized'] = normalize_uom(raw_row.get('uom_raw'))
+        insert_values['supplier_normalized'] = normalize_supplier(raw_row.get('supplier_name'))
+        qty_raw = raw_row.get('quantity')
+        if qty_raw:
+            try:
+                insert_values['quantity_normalized'] = float(str(qty_raw).replace(',', ''))
+            except (ValueError, TypeError):
+                insert_values['quantity_normalized'] = None
+        else:
+            insert_values['quantity_normalized'] = None
+
+    elif table_name == 'plm_assembly':
+        insert_values['assembly_ref_normalized'] = normalize_reference(raw_row.get('plm_assembly_ref'))
+        insert_values['assembly_description_normalized'] = normalize_description(raw_row.get('assembly_description'))
+        insert_values['variant_ref_normalized'] = normalize_reference(raw_row.get('variant_ref'))
+
+    elif table_name == 'plm_variant':
+        insert_values['variant_ref_normalized'] = normalize_reference(raw_row.get('variant_ref'))
+        insert_values['variant_name_normalized'] = normalize_description(raw_row.get('variant_name'))
+
+    elif table_name == 'erp_material':
+        insert_values['material_id_normalized'] = normalize_reference(raw_row.get('material_id'))
+        insert_values['description_normalized'] = normalize_description(raw_row.get('material_description'))
