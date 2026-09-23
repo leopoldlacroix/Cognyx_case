@@ -223,6 +223,13 @@ def test_blockers_conflicting_voltage_from_n064_style_note(conn):
     # Do not attach MAT-10001
     blob = json.dumps(row)
     assert "MAT-10001" not in blob
+    assert len(row["sources"]) == 2
+    for src in row["sources"]:
+        assert src["source_type"] == "engineering_note"
+        assert src["source_id"] == "N-064"
+        assert src["source_file"] == "technical_notes.csv"
+        assert src["source_row"] == 64
+    assert {s["value"] for s in row["sources"]} == {"24 V DC", "48 V DC"}
 
     facts = conn.execute(
         "SELECT attribute, value, status, source_type, source_id FROM technical_fact"
@@ -291,12 +298,30 @@ def test_blockers_lifecycle_mismatch_prototype_vs_released(conn):
     rows = blockers(conn)
     mismatches = [r for r in rows if r["issue_type"] == "lifecycle_mismatch"]
     assert len(mismatches) == 1
-    expl = mismatches[0]["explanation"]
+    mismatch = mismatches[0]
+    expl = mismatch["explanation"]
     assert "Prototype" in expl
     assert "Released" in expl
     assert "Obsolete" not in expl
     assert "OBSOLETE" not in expl
-    assert mismatches[0]["entity_ref"] == "PAX-COUNT-MOD-E"
+    assert mismatch["entity_ref"] == "PAX-COUNT-MOD-E"
+    assert mismatch["values"] == ["Prototype", "Released"]
+    assert len(mismatch["sources"]) == 2
+    by_value = {s["value"]: s for s in mismatch["sources"]}
+    assert by_value["Prototype"] == {
+        "source_type": "plm_assembly",
+        "source_id": "PAX-COUNT-MOD-E",
+        "value": "Prototype",
+        "source_file": "test.csv",
+        "source_row": 1,
+    }
+    assert by_value["Released"] == {
+        "source_type": "plm_assembly",
+        "source_id": "PCOUNT-M08",
+        "value": "Released",
+        "source_file": "test.csv",
+        "source_row": 2,
+    }
 
 
 def test_blockers_erp_obsolete_separate_from_assembly(conn):
@@ -342,6 +367,17 @@ def test_blockers_erp_obsolete_separate_from_assembly(conn):
     for r in erp:
         assert "Prototype" not in r.get("explanation", "")
         assert r["entity_ref"].startswith("MAT-")
+        assert len(r["sources"]) == 1
+        src = r["sources"][0]
+        assert src["source_type"] == "erp_material"
+        assert src["source_id"] == r["entity_ref"]
+        assert src["value"] == "OBSOLETE"
+        assert src["source_file"] == "material_master.csv"
+        assert isinstance(src["source_row"], int)
+    by_ref = {r["entity_ref"]: r["sources"][0] for r in erp}
+    assert by_ref["MAT-20001"]["source_row"] == 1
+    assert by_ref["MAT-20002"]["source_row"] == 2
+    assert by_ref["MAT-20004"]["source_row"] == 3
 
 
 # ---------------------------------------------------------------------------
