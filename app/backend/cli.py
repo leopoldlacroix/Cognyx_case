@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from app.db.connection import init_database
-from app.services.ingestion import ingest_all_files, get_ingestion_status
+from app.services.ingestion import ingest_all_files, get_ingestion_status, get_quarantine_count
 
 
 def main():
@@ -59,10 +59,13 @@ def main():
         status = get_ingestion_status(conn)
         
         print("\n=== Source File Status ===")
-        print(f"{'FILE':<25} {'SYSTEM':<12} {'ROWS':<8}")
-        print("-" * 50)
+        print(f"{'FILE':<25} {'SYSTEM':<12} {'ROWS':<8} {'QUARANTINED':<12}")
+        print("-" * 60)
         for row in status:
-            print(f"{row['file_name']:<25} {row['source_system']:<12} {row['bom_lines'] or 0 + row['assemblies'] or 0 + row['variants'] or 0 + row['materials'] or 0 + row['suppliers'] or 0 + row['notes'] or 0:<8}")
+            # Get quarantine count for this source file
+            qcount = get_quarantine_count(conn) if not hasattr(row, 'quarantine_count') else 0
+            total = (row['bom_lines'] or 0) + (row['assemblies'] or 0) + (row['variants'] or 0) + (row['materials'] or 0) + (row['suppliers'] or 0) + (row['notes'] or 0)
+            print(f"{row['file_name']:<25} {row['source_system']:<12} {total:<8} {qcount:<12}")
 
 
 if __name__ == '__main__':

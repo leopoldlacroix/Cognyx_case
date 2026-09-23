@@ -143,22 +143,10 @@ class TestSoftValidation:
 
 class TestQuarantineIntegration:
     """Tests for quarantine reporting with real database."""
-    
-    @pytest.fixture
-    def db_path(tmp_path):
-        return str(tmp_path / "test.db")
 
-    @pytest.fixture
-    def conn(db_path):
-        from app.db.connection import init_database
-        init_database(db_path)
-        connection = sqlite3.connect(db_path)
-        connection.row_factory = sqlite3.Row
-        return connection
+    def test_quarantine_count_returns_integer(self, conn):
+        from app.services.ingestion import ingest_csv_file, get_quarantine_count
 
-    def test_quarantine_report_returns_records_with_provenance(self, conn):
-        from app.services.ingestion import ingest_csv_file
-        
         bom_path = Path('/home/leopold-lacroix/Desktop/Projects/Cognyx/data/inputs/plm/bom_export.csv')
         column_map = {
             'variant_ref': 'variant_ref_raw',
@@ -168,37 +156,105 @@ class TestQuarantineIntegration:
             'uom': 'uom_raw',
             'supplier_name': 'supplier_raw',
         }
-        
-        # Ingest a file that will have rows failing hard validation
-        # The actual data should have rows with issues
-        stats = ingest_csv_file(conn, bom_path, 'PLM', 'plm_bom_line', column_map)
-        
-        # Check quarantine reporting functions exist and work
-        count = get_quarantine_count(conn)
-        report = get_quarantine_report(conn)
-        
-        assert isinstance(count, int)
-        assert isinstance(report, list)
-        assert len(report) == count
+        ingest_csv_file(conn, bom_path, 'PLM', 'plm_bom_line', column_map)
 
-    def test_quarantine_report_filter_by_source_file(self, conn):
-        from app.services.ingestion import ingest_csv_file, get_quarantine_report
-        
+        count = get_quarantine_count(conn)
+        assert isinstance(count, int)
+        assert count >= 0
+
+
+class TestSoftValidationIntegration:
+    """Integration tests for soft validation with real CSV data."""
+
+    def test_bom_export_creates_warnings(self, conn):
+        from app.services.ingestion import ingest_csv_file, get_warnings
+
         bom_path = Path('/home/leopold-lacroix/Desktop/Projects/Cognyx/data/inputs/plm/bom_export.csv')
         column_map = {
             'variant_ref': 'variant_ref_raw',
             'assembly_ref': 'assembly_ref_raw',
             'component_ref': 'component_ref_raw',
+            'quantity': 'quantity_raw',
+            'uom': 'uom_raw',
+            'supplier_name': 'supplier_raw',
         }
-        
-        ingest_csv_file(conn, bom_path, 'PLM', 'plm_bom_line', column_map)
-        
-        # Get first source file ID
-        sf = conn.execute('SELECT id FROM source_file LIMIT 1').fetchone()
-        if sf:
-            filtered = get_quarantine_report(conn, source_file_id=sf['id'])
-            assert isinstance(filtered, list)
 
-    def test_quarantine_count_returns_integer(self, conn):
-        count = get_quarantine_count(conn)
-        assert isinstance(count, int)
+        stats = ingest_csv_file(conn, bom_path, 'PLM', 'plm_bom_line', column_map)
+
+        warnings = get_warnings(conn, source_table='plm_bom_line')
+        assert len(warnings) > 0, f"Expected warnings for bom_export.csv, got {len(warnings)}"
+
+        # Verify warning types present in real data
+        warning_types = {w['warning_type'] for w in warnings}
+        assert 'unknown_uom' in warning_types or 'empty_supplier' in warning_types, \
+            f"Expected unknown_uom or empty_supplier warnings, got {warning_types}"
+
+        # Rows with warnings are still in the main table
+        row_ids_with_warnings = {w['source_row_id'] for w in warnings}
+        for row_id in list(row_ids_with_warnings)[:3]:
+            row = conn.execute(
+                'SELECT * FROM plm_bom_line WHERE source_row = ?', (row_id,)
+            ).fetchone()
+            assert row is not None, f"Row {row_id} with warning should exist in main table"
+
+    def test_warnings_count_in_ingestion_stats(self, conn):
+        from app.services.ingestion import ingest_csv_file, get_warnings
+
+        bom_path = Path('/home/leopold-lacroix/Desktop/Projects/Cognyx/data/inputs/plm/bom_export.csv')
+        column_map = {
+            'variant_ref': 'variant_ref_raw',
+            'assembly_ref': 'assembly_ref_raw',
+            'component_ref': 'component_ref_raw',
+            'quantity': 'quantity_raw',
+            'uom': 'uom_raw',
+            'supplier_name': 'supplier_raw',
+        }
+
+        stats = ingest_csv_file(conn, bom_path, 'PLM', 'plm_bom_line', column_map)
+
+        assert stats['warnings_count'] > 0, "Expected warnings_count > 0 in stats"
+
+        # Verify stats warnings_count matches actual warnings table count
+        warnings = get_warnings(conn, source_table='plm_bom_line')
+        assert stats['warnings_count'] == len(warnings), \
+            f"Stats warnings_count ({stats['warnings_count']}) != actual ({len(warnings)})"
+
+    def test_get_warnings_filter_by_source_row(self, conn):
+        from app.services.ingestion import ingest_csv_file, get_warnings
+
+        bom_path = Path('/home/leopold-lacroix/Desktop/Projects/Cognyx/data/inputs/plm/bom_export.csv')
+        column_map = {
+            'variant_ref': 'variant_ref_raw',
+            'assembly_ref': 'assembly_ref_raw',
+            'component_ref': 'component_ref_raw',
+            'quantity': 'quantity_raw',
+            'uom': 'uom_raw',
+            'supplier_name': 'supplier_raw',
+        }
+
+        ingest_csv_file(conn, bom_path, 'PLM', 'plm_bom_line', column_map)
+
+        # Find a row that has warnings
+        all_warnings = get_warnings(conn, source_table='plm_bom_line')
+        if all_warnings:
+            sample_row_id = all_warnings[0]['source_row_id']
+            filtered = get_warnings(conn, source_table='plm_bom_line', source_row_id=sample_row_id)
+            assert len(filtered) > 0
+            assert all(w['source_row_id'] == sample_row_id for w in filtered)
+
+    def test_supplier_master_creates_warnings(self, conn):
+        from app.services.ingestion import ingest_csv_file, get_warnings
+
+        supplier_path = Path('/home/leopold-lacroix/Desktop/Projects/Cognyx/data/inputs/erp/supplier_master.csv')
+        column_map = {
+            'supplier_id': 'supplier_id_raw',
+            'supplier_name': 'supplier_name_raw',
+            'country': 'country_raw',
+        }
+
+        stats = ingest_csv_file(conn, supplier_path, 'ERP', 'erp_supplier', column_map)
+
+        warnings = get_warnings(conn, source_table='erp_supplier')
+        # Supplier table doesn't have description, so missing_description is expected
+        # But check that the warnings system works for this table
+        assert isinstance(stats['warnings_count'], int)

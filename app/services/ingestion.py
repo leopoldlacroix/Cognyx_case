@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.db.connection import get_connection
-from app.services.validation import validate_hard, check_row_structure
+from app.services.validation import validate_hard, check_row_structure, check_soft_validation
 
 
 def compute_file_hash(file_path: Path) -> str:
@@ -135,7 +135,13 @@ def ingest_csv_file(
                 quarantine_row(conn, source_file_id, source_row, row, hard_failure)
                 stats['quarantined_count'] += 1
                 continue
-            
+
+            # Soft validation — record warnings but let row continue
+            soft_warnings = check_soft_validation(row, source_system)
+            for warning in soft_warnings:
+                add_warning(conn, table_name, source_row, warning['warning_type'], warning['warning_message'])
+                stats['warnings_count'] += 1
+
             # Build insert values
             insert_values = {'source_file_id': source_file_id, 'source_row': source_row}
             
@@ -347,3 +353,48 @@ def get_quarantine_count(conn: sqlite3.Connection, source_file_id: Optional[int]
             (source_file_id,)
         ).fetchone()['c']
     return conn.execute('SELECT COUNT(*) as c FROM quarantine').fetchone()['c']
+
+
+def add_warning(
+    conn: sqlite3.Connection,
+    source_table: str,
+    source_row_id: int,
+    warning_type: str,
+    warning_message: str
+) -> None:
+    """Record a soft validation warning."""
+    conn.execute("""
+        INSERT INTO warnings (source_table, source_row_id, warning_type, warning_message, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (source_table, source_row_id, warning_type, warning_message,
+          datetime.now(timezone.utc).isoformat()))
+    conn.commit()
+
+
+def get_warnings(
+    conn: sqlite3.Connection,
+    source_table: Optional[str] = None,
+    source_row_id: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Return soft validation warnings, optionally filtered."""
+    if source_table and source_row_id:
+        rows = conn.execute("""
+            SELECT id, source_table, source_row_id, warning_type, warning_message, created_at
+            FROM warnings
+            WHERE source_table = ? AND source_row_id = ?
+            ORDER BY created_at
+        """, (source_table, source_row_id)).fetchall()
+    elif source_table:
+        rows = conn.execute("""
+            SELECT id, source_table, source_row_id, warning_type, warning_message, created_at
+            FROM warnings
+            WHERE source_table = ?
+            ORDER BY created_at
+        """, (source_table,)).fetchall()
+    else:
+        rows = conn.execute("""
+            SELECT id, source_table, source_row_id, warning_type, warning_message, created_at
+            FROM warnings
+            ORDER BY created_at
+        """).fetchall()
+    return [dict(r) for r in rows]
