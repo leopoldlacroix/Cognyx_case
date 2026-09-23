@@ -106,3 +106,140 @@ class TestPunctuationHelper:
 
     def test_none(self):
         assert normalize_punctuation(None) is None
+
+
+class TestERPNormalization:
+    """Tests for ERP material normalization (NORM-05)."""
+
+    def test_erp_supplier_mapping_matches_known_supplier(self, db_connection):
+        """ERP materials have supplier_name_normalized populated from supplier master lookup."""
+        from app.services.normalization import normalize_erp_materials
+        from app.db.connection import get_connection
+
+        conn = get_connection(':memory:')
+        conn.execute("PRAGMA foreign_keys = ON")
+
+        # Create schema
+        from app.db.schema import create_schema
+        create_schema(conn)
+
+        # Insert ERP supplier
+        conn.execute(
+            'INSERT INTO erp_supplier (source_file_id, source_row, supplier_id_raw, '
+            'supplier_name_raw, country_raw, supplier_name_normalized) VALUES (?, ?, ?, ?, ?, ?)',
+            (1, 1, 'SUP-001', 'Siemens Mobility GmbH', 'Germany', 'SIEMENS MOBILITY')
+        )
+
+        # Insert ERP material with matching supplier
+        conn.execute(
+            'INSERT INTO erp_material (source_file_id, source_row, material_id_raw, '
+            'description_raw, material_type_raw, base_unit_raw, supplier_id_raw, '
+            'category_raw, status_raw, cost_raw, material_id_normalized, '
+            'description_normalized, supplier_name_normalized, base_unit_normalized) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (1, 2, 'MAT-10001', 'HVAC Control Unit', 'COMPONENT', 'EA', 'SUP-001',
+             'HVAC', 'ACTIVE', 1850, 'MAT-10001', 'HVAC Control Unit', None, None)
+        )
+        conn.commit()
+
+        # Run normalization
+        stats = normalize_erp_materials(conn)
+
+        # Verify
+        result = conn.execute(
+            'SELECT supplier_name_normalized, base_unit_normalized FROM erp_material WHERE id = 2'
+        ).fetchone()
+        assert result['supplier_name_normalized'] == 'SIEMENS MOBILITY', \
+            f"Expected 'SIEMENS MOBILITY', got {result['supplier_name_normalized']}"
+        assert result['base_unit_normalized'] == 'EA'
+
+    def test_erp_supplier_mapping_unmatched_emits_warning(self, db_connection):
+        """Unmatched supplier IDs leave normalized NULL with warning."""
+        from app.services.normalization import normalize_erp_materials
+        from app.db.connection import get_connection
+
+        conn = get_connection(':memory:')
+        conn.execute("PRAGMA foreign_keys = ON")
+
+        # Create schema
+        from app.db.schema import create_schema
+        create_schema(conn)
+
+        # Insert ERP material with unknown supplier (no supplier in master)
+        conn.execute(
+            'INSERT INTO erp_material (source_file_id, source_row, material_id_raw, '
+            'description_raw, material_type_raw, base_unit_raw, supplier_id_raw, '
+            'category_raw, status_raw, cost_raw, material_id_normalized, '
+            'description_normalized, supplier_name_normalized, base_unit_normalized) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (1, 1, 'MAT-99999', 'Unknown Part', 'COMPONENT', 'EA', 'SUP-999',
+             'UNKNOWN', 'ACTIVE', 100, 'MAT-99999', 'Unknown Part', None, None)
+        )
+        conn.commit()
+
+        # Run normalization
+        stats = normalize_erp_materials(conn)
+
+        # Verify unmatched
+        assert stats['unmatched'] == 1, f"Expected 1 unmatched, got {stats['unmatched']}"
+
+        result = conn.execute(
+            'SELECT supplier_name_normalized FROM erp_material WHERE id = 1'
+        ).fetchone()
+        assert result['supplier_name_normalized'] is None, \
+            f"Expected NULL for unmatched supplier, got {result['supplier_name_normalized']}"
+
+        # Verify warning was emitted
+        warnings = conn.execute(
+            "SELECT warning_type FROM warnings WHERE source_table = 'erp_material'"
+        ).fetchall()
+        assert len(warnings) == 1, f"Expected 1 warning, got {len(warnings)}"
+        assert warnings[0]['warning_type'] == 'unmatched_supplier'
+
+    def test_erp_uom_standardization(self, db_connection):
+        """ERP materials have base_unit_normalized standardized via UOM aliases."""
+        from app.services.normalization import normalize_erp_materials, load_normalization_config
+        from app.db.connection import get_connection
+
+        conn = get_connection(':memory:')
+        conn.execute("PRAGMA foreign_keys = ON")
+
+        # Create schema
+        from app.db.schema import create_schema
+        create_schema(conn)
+
+        config = load_normalization_config()
+
+        # Insert ERP material with various UOMs
+        test_cases = [
+            ('MAT-001', 'EA', 'EA', True),   # Already canonical
+            ('MAT-002', 'PCS', 'EA', True),  # Alias to EA
+            ('MAT-003', 'PIECE', 'EA', True),  # Alias to EA
+            ('MAT-004', 'SET', 'EA', True),  # Alias to EA
+            ('MAT-005', 'METER', 'METER', False),  # Unknown, kept as-is
+        ]
+
+        for mat_id, uom_raw, expected_norm, is_alias in test_cases:
+            conn.execute(
+                'INSERT INTO erp_material (source_file_id, source_row, material_id_raw, '
+                'description_raw, material_type_raw, base_unit_raw, supplier_id_raw, '
+                'category_raw, status_raw, cost_raw, material_id_normalized, '
+                'description_normalized, supplier_name_normalized, base_unit_normalized) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                (1, 1, mat_id, 'Test Part', 'COMPONENT', uom_raw, 'SUP-001',
+                 'TEST', 'ACTIVE', 100, mat_id, 'Test Part', 'SIEMENS MOBILITY', None)
+            )
+        conn.commit()
+
+        # Run normalization
+        stats = normalize_erp_materials(conn)
+
+        # Verify UOM standardization
+        assert stats['uom_normalized'] == 4, f"Expected 4 UOM normalized, got {stats['uom_normalized']}"
+        assert stats['uom_unknown'] == 1, f"Expected 1 unknown UOM, got {stats['uom_unknown']}"
+
+        # Check specific materials
+        for mat_id, uom_raw, expected_norm, is_alias in test_cases:
+            result = conn.execute(
+                'SELECT base_unit_normalized FROM erp_material WHERE material_id_raw = ?',
+                (mat_id,)
+            ).fetchone()
+            assert result['base_unit_normalized'] == expected_norm, \
+                f"Material {mat_id}: expected {expected_norm}, got {result['base_unit_normalized']}"

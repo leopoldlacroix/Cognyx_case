@@ -6,8 +6,10 @@ punctuation harmonization. Plus config-driven alias resolution.
 """
 import json
 import re
+import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Any, Dict, Optional
 
 
 def normalize_whitespace(s: Optional[str]) -> Optional[str]:
@@ -160,3 +162,98 @@ def normalize_with_aliases(raw_value: Optional[str], field_type: str,
         return normalize_description(raw_value)
     else:
         return normalize_whitespace(raw_value)
+
+
+def normalize_erp_materials(conn: sqlite3.Connection, config: Optional[Dict] = None) -> Dict[str, Any]:
+    """Normalize ERP material supplier references and UOM values (NORM-05).
+
+    For each erp_material row:
+    - Look up supplier_id_raw in erp_supplier.supplier_id_normalized
+    - If found, populate supplier_name_normalized from erp_supplier.supplier_name_normalized
+    - If not found, leave NULL and emit warning
+    - Standardize base_unit_raw via UOM aliases from config
+
+    Args:
+        conn: Database connection
+        config: Optional normalization config (loaded from config/normalization.json if None)
+
+    Returns:
+        Dict with stats: processed, matched, unmatched, uom_normalized, uom_unknown
+    """
+    if config is None:
+        config = load_normalization_config()
+
+    stats = {
+        'processed': 0,
+        'matched': 0,
+        'unmatched': 0,
+        'uom_normalized': 0,
+        'uom_unknown': 0,
+    }
+
+    # Build supplier lookup: normalized_id → normalized_name
+    # Match against supplier_id_normalized (which is the normalized form of supplier_id_raw)
+    supplier_lookup = {}
+    for row in conn.execute(
+        'SELECT supplier_id_normalized, supplier_name_normalized '
+        'FROM erp_supplier '
+        'WHERE supplier_id_normalized IS NOT NULL '
+        'AND supplier_name_normalized IS NOT NULL'
+    ).fetchall():
+        supplier_lookup[row['supplier_id_normalized']] = row['supplier_name_normalized']
+
+    uom_aliases = config.get('uom_aliases', {})
+
+    # Get all ERP materials with raw supplier_id
+    materials = conn.execute(
+        'SELECT id, supplier_id_raw, base_unit_raw FROM erp_material '
+        'WHERE supplier_id_raw IS NOT NULL'
+    ).fetchall()
+
+    for mat in materials:
+        stats['processed'] += 1
+        mat_id = mat['id']
+        supplier_id_raw = mat['supplier_id_raw']
+        base_unit_raw = mat['base_unit_raw']
+
+        # --- Supplier name mapping (NORM-05) ---
+        matched_name = None
+        # Try exact match against normalized supplier IDs
+        for sup_id_norm, sup_name_norm in supplier_lookup.items():
+            if supplier_id_raw.strip().upper() == sup_id_norm:
+                matched_name = sup_name_norm
+                break
+
+        if matched_name:
+            conn.execute(
+                'UPDATE erp_material SET supplier_name_normalized = ? WHERE id = ?',
+                (matched_name, mat_id)
+            )
+            stats['matched'] += 1
+        else:
+            stats['unmatched'] += 1
+            # Emit soft warning for unmatched supplier
+            from app.services.ingestion import add_warning
+            add_warning(
+                conn,
+                'erp_material',
+                mat_id,
+                'unmatched_supplier',
+                f"Supplier ID '{supplier_id_raw}' not found in ERP supplier master"
+            )
+
+        # --- UOM standardization (NORM-05) ---
+        if base_unit_raw:
+            raw_uom = base_unit_raw.strip().upper()
+            normalized_uom = uom_aliases.get(raw_uom, raw_uom)
+            conn.execute(
+                'UPDATE erp_material SET base_unit_normalized = ? WHERE id = ?',
+                (normalized_uom, mat_id)
+            )
+            if raw_uom in uom_aliases:
+                stats['uom_normalized'] += 1
+            else:
+                stats['uom_unknown'] += 1
+
+    conn.commit()
+    return stats

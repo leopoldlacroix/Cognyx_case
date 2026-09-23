@@ -462,3 +462,9 @@ def _apply_normalization(
     elif table_name == 'erp_material':
         insert_values['material_id_normalized'] = normalize_reference(raw_row.get('material_id'))
         insert_values['description_normalized'] = normalize_description(raw_row.get('material_description'))
+        # UOM: generic normalize -> alias (NORM-05)
+        raw_uom = raw_row.get('base_unit')
+        generic_uom = normalize_uom(raw_uom)
+        insert_values['base_unit_normalized'] = apply_uom_aliases(generic_uom, config)
+        # Supplier name: will be populated by normalize_erp_materials() post-ingestion (NORM-05)
+        # For now, store the raw supplier_id for later lookup
