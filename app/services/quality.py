@@ -103,10 +103,12 @@ def blockers(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
     # --- SCEN-G: conflicting voltages in note text ---
     notes = conn.execute(
         """
-        SELECT id, object_reference_raw, note_text, author, source_row
-        FROM engineering_note
-        WHERE note_text IS NOT NULL AND TRIM(note_text) != ''
-        ORDER BY id
+        SELECT n.id, n.object_reference_raw, n.note_text, n.author, n.source_row,
+               sf.file_name AS source_file
+        FROM engineering_note n
+        JOIN source_file sf ON sf.id = n.source_file_id
+        WHERE n.note_text IS NOT NULL AND TRIM(n.note_text) != ''
+        ORDER BY n.id
         """
     ).fetchall()
 
@@ -144,6 +146,8 @@ def blockers(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
                     "source_type": "engineering_note",
                     "source_id": str(source_id),
                     "value": value,
+                    "source_file": note["source_file"],
+                    "source_row": int(note["source_row"]),
                 }
             )
         results.append(
@@ -163,10 +167,12 @@ def blockers(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
     # --- SCEN-J: counting assembly lifecycle mismatch ---
     assemblies = conn.execute(
         """
-        SELECT id, assembly_ref_raw, assembly_ref_normalized, lifecycle_raw, variant_ref_raw
-        FROM plm_assembly
-        WHERE assembly_ref_raw IS NOT NULL
-        ORDER BY id
+        SELECT a.id, a.assembly_ref_raw, a.assembly_ref_normalized, a.lifecycle_raw,
+               a.variant_ref_raw, a.source_row, sf.file_name AS source_file
+        FROM plm_assembly a
+        JOIN source_file sf ON sf.id = a.source_file_id
+        WHERE a.assembly_ref_raw IS NOT NULL
+        ORDER BY a.id
         """
     ).fetchall()
 
@@ -216,11 +222,15 @@ def blockers(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
                         "source_type": "plm_assembly",
                         "source_id": prototype["assembly_ref_raw"],
                         "value": "Prototype",
+                        "source_file": prototype["source_file"],
+                        "source_row": int(prototype["source_row"]),
                     },
                     {
                         "source_type": "plm_assembly",
                         "source_id": peer["assembly_ref_raw"],
                         "value": "Released",
+                        "source_file": peer["source_file"],
+                        "source_row": int(peer["source_row"]),
                     },
                 ],
                 "explanation": (
@@ -234,10 +244,12 @@ def blockers(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
     # --- SCEN-J: ERP obsolete materials (separate rows) ---
     obsolete = conn.execute(
         """
-        SELECT id, material_id_raw, status_raw, description_raw
-        FROM erp_material
-        WHERE UPPER(COALESCE(status_raw, '')) = 'OBSOLETE'
-        ORDER BY material_id_raw
+        SELECT m.id, m.material_id_raw, m.status_raw, m.description_raw,
+               m.source_row, sf.file_name AS source_file
+        FROM erp_material m
+        JOIN source_file sf ON sf.id = m.source_file_id
+        WHERE UPPER(COALESCE(m.status_raw, '')) = 'OBSOLETE'
+        ORDER BY m.material_id_raw
         """
     ).fetchall()
     for mat in obsolete:
@@ -263,6 +275,8 @@ def blockers(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
                         "source_type": "erp_material",
                         "source_id": mid,
                         "value": "OBSOLETE",
+                        "source_file": mat["source_file"],
+                        "source_row": int(mat["source_row"]),
                     }
                 ],
                 "explanation": (
