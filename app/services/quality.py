@@ -6,7 +6,9 @@ import re
 import sqlite3
 import zlib
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from app.services.normalization import load_normalization_config
 
 _VOLTAGE_RE = re.compile(r"(?i)(\d+)\s*V")
 
@@ -22,9 +24,96 @@ COUNTING_ASSEMBLY_REFS = frozenset(
 
 _MAPPING_NOISE_TYPES = frozenset({"missing_description", "empty_supplier"})
 
+_INGESTED_TABLES = (
+    "plm_bom_line",
+    "plm_assembly",
+    "plm_variant",
+    "erp_material",
+    "erp_supplier",
+    "engineering_note",
+)
+
 # Facts written by blockers(); deleted/replaced on each call for idempotency.
 _OWNED_SOURCE_TYPES = frozenset({"engineering_note", "plm_assembly", "erp_material"})
 
+
+def _record(
+    source_table: str,
+    source_id: Any,
+    source_file: Optional[str] = None,
+    source_row: Optional[int] = None,
+) -> Dict[str, Any]:
+    return {
+        "source_table": source_table,
+        "source_id": str(source_id),
+        "source_file": source_file,
+        "source_row": int(source_row) if source_row is not None else None,
+    }
+
+
+def _warning_by_source_file(conn: sqlite3.Connection, warning_type: str) -> Dict[str, int]:
+    """Group warnings of one type by CSV file via table.source_row → source_file."""
+    counts: Dict[str, int] = {}
+    for table in _INGESTED_TABLES:
+        rows = conn.execute(
+            f"""
+            SELECT sf.file_name AS file_name, COUNT(*) AS n
+            FROM warnings w
+            JOIN {table} t ON t.source_row = w.source_row_id
+            JOIN source_file sf ON sf.id = t.source_file_id
+            WHERE w.warning_type = ? AND w.source_table = ?
+            GROUP BY sf.file_name
+            """,
+            (warning_type, table),
+        ).fetchall()
+        for row in rows:
+            name = row["file_name"]
+            counts[name] = counts.get(name, 0) + int(row["n"])
+    return counts
+
+
+def _fact_provenance(
+    conn: sqlite3.Connection, source_type: str, source_id: str
+) -> Tuple[Optional[str], Optional[int]]:
+    """Resolve source_file / source_row for a technical_fact source when possible."""
+    if source_type == "engineering_note":
+        row = conn.execute(
+            """
+            SELECT n.source_row, sf.file_name AS source_file
+            FROM engineering_note n
+            JOIN source_file sf ON sf.id = n.source_file_id
+            WHERE n.author = ? OR CAST(n.id AS TEXT) = ?
+            ORDER BY n.id LIMIT 1
+            """,
+            (source_id, source_id),
+        ).fetchone()
+    elif source_type == "plm_assembly":
+        row = conn.execute(
+            """
+            SELECT a.source_row, sf.file_name AS source_file
+            FROM plm_assembly a
+            JOIN source_file sf ON sf.id = a.source_file_id
+            WHERE a.assembly_ref_raw = ?
+            ORDER BY a.id LIMIT 1
+            """,
+            (source_id,),
+        ).fetchone()
+    elif source_type == "erp_material":
+        row = conn.execute(
+            """
+            SELECT m.source_row, sf.file_name AS source_file
+            FROM erp_material m
+            JOIN source_file sf ON sf.id = m.source_file_id
+            WHERE m.material_id_raw = ?
+            ORDER BY m.id LIMIT 1
+            """,
+            (source_id,),
+        ).fetchone()
+    else:
+        row = None
+    if row is None:
+        return None, None
+    return row["source_file"], int(row["source_row"])
 
 def extract_voltage_facts(text: Optional[str]) -> Set[str]:
     """Return sorted-unique voltages as '{n} V DC' from integers matched by (?i)(\\d+)\\s*V."""
@@ -293,13 +382,16 @@ def blockers(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
 def data_quality_issues(conn: sqlite3.Connection) -> Dict[str, Any]:
     """Concrete SCEN-I issues plus grouped soft-warning summary."""
     issues: List[Dict[str, Any]] = []
+    new_issues: List[Dict[str, Any]] = []
 
     # Invalid quantity from quarantine
     for row in conn.execute(
         """
-        SELECT id, source_row, raw_data, rejection_reason
-        FROM quarantine
-        ORDER BY source_row
+        SELECT q.id, q.source_row, q.raw_data, q.rejection_reason,
+               sf.file_name AS source_file
+        FROM quarantine q
+        JOIN source_file sf ON sf.id = q.source_file_id
+        ORDER BY q.source_row
         """
     ):
         reason = (row["rejection_reason"] or "").lower()
@@ -334,6 +426,14 @@ def data_quality_issues(conn: sqlite3.Connection) -> Dict[str, Any]:
                     f"has unparseable quantity {qty!r}. "
                     f"{row['rejection_reason'] or ''}".strip()
                 ),
+                "records": [
+                    _record(
+                        "quarantine",
+                        row["id"],
+                        row["source_file"],
+                        int(row["source_row"]),
+                    )
+                ],
             }
         )
 
@@ -341,12 +441,14 @@ def data_quality_issues(conn: sqlite3.Connection) -> Dict[str, Any]:
     groups: Dict[tuple, List[Dict[str, Any]]] = {}
     for row in conn.execute(
         """
-        SELECT id, source_row, variant_ref_normalized, assembly_ref_normalized,
-               component_ref_normalized, component_ref_raw
-        FROM plm_bom_line
-        WHERE component_ref_normalized IS NOT NULL
-          AND TRIM(component_ref_normalized) != ''
-        ORDER BY id
+        SELECT b.id, b.source_row, b.variant_ref_normalized, b.assembly_ref_normalized,
+               b.component_ref_normalized, b.component_ref_raw,
+               sf.file_name AS source_file
+        FROM plm_bom_line b
+        JOIN source_file sf ON sf.id = b.source_file_id
+        WHERE b.component_ref_normalized IS NOT NULL
+          AND TRIM(b.component_ref_normalized) != ''
+        ORDER BY b.id
         """
     ):
         key = (
@@ -372,6 +474,15 @@ def data_quality_issues(conn: sqlite3.Connection) -> Dict[str, Any]:
                     f"appears {len(members)} times (source ids {', '.join(source_ids)}; "
                     f"raw refs: {', '.join(raws)})."
                 ),
+                "records": [
+                    _record(
+                        "plm_bom_line",
+                        m["id"],
+                        m["source_file"],
+                        int(m["source_row"]),
+                    )
+                    for m in members
+                ],
             }
         )
 
@@ -407,10 +518,171 @@ def data_quality_issues(conn: sqlite3.Connection) -> Dict[str, Any]:
                     f"Component {ref} uses raw UOMs {', '.join(raws)} that all "
                     f"normalize to {norm}. Informational alias, not a conflict."
                 ),
+                "records": [],
             }
         )
 
-    # Warning summary (counts only; mapping noise flagged)
+    # --- New issue types (appended; sorted among themselves only) ---
+
+    # duplicate_reference: same normalized_reference across source systems
+    ref_groups: Dict[str, List[sqlite3.Row]] = {}
+    for row in conn.execute(
+        """
+        SELECT id, source_system, source_reference, normalized_reference
+        FROM source_component
+        WHERE normalized_reference IS NOT NULL
+          AND TRIM(normalized_reference) != ''
+        ORDER BY id
+        """
+    ):
+        ref_groups.setdefault(row["normalized_reference"], []).append(row)
+
+    for norm_ref, members in ref_groups.items():
+        systems = {m["source_system"] for m in members}
+        if len(systems) < 2:
+            continue
+        systems_sorted = sorted(systems)
+        # One representative per system for records (at least both systems)
+        by_system: Dict[str, sqlite3.Row] = {}
+        for m in members:
+            by_system.setdefault(m["source_system"], m)
+        picked = [by_system[s] for s in systems_sorted]
+        new_issues.append(
+            {
+                "issue_type": "duplicate_reference",
+                "refs": [norm_ref] + [m["source_reference"] for m in picked],
+                "detail": (
+                    f"{norm_ref} across {', '.join(systems_sorted)} "
+                    f"({', '.join(m['source_reference'] for m in picked)})"
+                ),
+                "explanation": (
+                    f"Normalized reference {norm_ref} appears on source_component rows "
+                    f"from systems {', '.join(systems_sorted)}."
+                ),
+                "records": [
+                    _record("source_component", m["id"]) for m in picked
+                ],
+            }
+        )
+
+    # conflicting_facts: groups of CONFLICTING technical_fact with ≥2 values
+    fact_groups: Dict[tuple, List[sqlite3.Row]] = {}
+    for row in conn.execute(
+        """
+        SELECT entity_type, entity_id, attribute, value, source_type, source_id
+        FROM technical_fact
+        WHERE status = 'CONFLICTING'
+        ORDER BY entity_type, entity_id, attribute, value, source_id
+        """
+    ):
+        key = (row["entity_type"], row["entity_id"], row["attribute"])
+        fact_groups.setdefault(key, []).append(row)
+
+    for (entity_type, entity_id, attribute), facts in fact_groups.items():
+        values = sorted({f["value"] for f in facts if f["value"] is not None})
+        if len(values) < 2:
+            continue
+        records = []
+        seen_rec: Set[tuple] = set()
+        for f in facts:
+            file_name, src_row = _fact_provenance(conn, f["source_type"], str(f["source_id"]))
+            rec_key = (f["source_type"], str(f["source_id"]), f["value"])
+            if rec_key in seen_rec:
+                continue
+            seen_rec.add(rec_key)
+            records.append(
+                _record(f["source_type"], f["source_id"], file_name, src_row)
+            )
+        new_issues.append(
+            {
+                "issue_type": "conflicting_facts",
+                "refs": [f"{entity_type}:{entity_id}", attribute] + values,
+                "detail": f"{entity_type}/{entity_id}/{attribute}: {' vs '.join(values)}",
+                "explanation": (
+                    f"Conflicting facts for {entity_type} {entity_id} attribute "
+                    f"{attribute}: {', '.join(values)}. Both values kept."
+                ),
+                "records": records,
+            }
+        )
+
+    # unresolved_reconciliation: PENDING/REJECTED identity
+    unresolved_rows: List[sqlite3.Row] = []
+    for row in conn.execute(
+        """
+        SELECT id, status, evidence_json
+        FROM component_reconciliation
+        WHERE status IN ('PENDING', 'REJECTED')
+        ORDER BY id
+        """
+    ):
+        try:
+            evidence = json.loads(row["evidence_json"] or "{}")
+        except (json.JSONDecodeError, TypeError):
+            evidence = {}
+        if evidence.get("relationship") != "identity":
+            continue
+        unresolved_rows.append(row)
+
+    unresolved_count = len(unresolved_rows)
+    if unresolved_count:
+        new_issues.append(
+            {
+                "issue_type": "unresolved_reconciliation",
+                "refs": [str(r["id"]) for r in unresolved_rows],
+                "detail": str(unresolved_count),
+                "explanation": (
+                    f"{unresolved_count} identity reconciliation(s) remain "
+                    "PENDING or REJECTED."
+                ),
+                "records": [
+                    _record("component_reconciliation", r["id"]) for r in unresolved_rows
+                ],
+            }
+        )
+
+    # alias_summary: informational from config reference_aliases
+    config = load_normalization_config()
+    reference_aliases = config.get("reference_aliases", {})
+    if reference_aliases:
+        alias_parts = [f"{raw} → {canon}" for raw, canon in sorted(reference_aliases.items())]
+        alias_records: List[Dict[str, Any]] = []
+        for raw in reference_aliases:
+            bom = conn.execute(
+                """
+                SELECT b.id, b.source_row, sf.file_name AS source_file
+                FROM plm_bom_line b
+                JOIN source_file sf ON sf.id = b.source_file_id
+                WHERE b.component_ref_raw = ?
+                ORDER BY b.id LIMIT 1
+                """,
+                (raw,),
+            ).fetchone()
+            if bom is not None:
+                alias_records.append(
+                    _record(
+                        "plm_bom_line",
+                        bom["id"],
+                        bom["source_file"],
+                        int(bom["source_row"]),
+                    )
+                )
+        new_issues.append(
+            {
+                "issue_type": "alias_summary",
+                "refs": list(reference_aliases.keys()),
+                "detail": "; ".join(alias_parts),
+                "explanation": (
+                    "Reference aliases from normalization config "
+                    "(informational; not a defect)."
+                ),
+                "records": alias_records,
+            }
+        )
+
+    new_issues.sort(key=lambda i: (i["issue_type"], i["detail"]))
+
+    # Warning summary (counts + by_source_file; mapping noise flagged)
     summary: Dict[str, Any] = {}
     for row in conn.execute(
         """
@@ -421,9 +693,16 @@ def data_quality_issues(conn: sqlite3.Connection) -> Dict[str, Any]:
         """
     ):
         wtype = row["warning_type"]
-        entry: Dict[str, Any] = {"count": row["n"]}
+        entry: Dict[str, Any] = {
+            "count": row["n"],
+            "by_source_file": _warning_by_source_file(conn, wtype),
+        }
         if wtype in _MAPPING_NOISE_TYPES:
             entry["mapping_noise"] = True
         summary[wtype] = entry
 
-    return {"issues": issues, "ingestion_warning_summary": summary}
+    return {
+        "issues": issues + new_issues,
+        "ingestion_warning_summary": summary,
+        "unresolved_reconciliation_count": unresolved_count,
+    }
