@@ -1,5 +1,7 @@
 # Architecture and what each step does
 
+The spoken tour is `01-demo-walkthrough.md`. What is missing, what to tighten, and what comes later is `03-gaps-and-later.md`.
+
 The pilot is one Python package, one SQLite file, and six generated HTML pages. There is no web framework. `python -m app.backend.cli serve` is a small local server so the Proposals buttons can write a decision and regenerate the pages.
 
 Raw spreadsheets in `data/inputs/` are never edited. Output goes to `data/processed/` (`cognyx.db` and the HTML). `data/ground_truth/` is for tests only and is not rendered.

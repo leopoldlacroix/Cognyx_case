@@ -1,6 +1,6 @@
 # Demo walkthrough
 
-How to open the six pages and what to say on each one. This is the spoken tour. The technical note next to it explains how the programs connect.
+How to open the six pages and what to say on each one. This is the spoken tour. The technical note next to it explains how the programs connect. The third note lists what is missing, what to tighten, and what belongs after the pilot.
 
 Start the site from the project folder, then use the address. Double-clicking an HTML file shows the pages, and the Accept / Reject / Redirect buttons do not save.
 
