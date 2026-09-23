@@ -15,17 +15,28 @@ PAGES = (
     ("normalize.html", "1 · Normalize"),
     ("proposals.html", "2 · Proposals"),
     ("canonical.html", "3 · Canonical"),
+    ("compare.html", "4 · Compare"),
     ("report.html", "Preview · Reuse"),
 )
 
+_STD_NORDIC = ("REGIO-STD", "REGIO-NORDIC")
 
-def shell(title: str, active: str, body: str) -> str:
+
+def shell(
+    title: str,
+    active: str,
+    body: str,
+    *,
+    body_class: str = "",
+    extra_css: str = "",
+) -> str:
     e = html.escape
     links = []
     for filename, label in PAGES:
         cls = ' class="active"' if filename == active else ""
         links.append(f'<a href="{filename}"{cls}>{e(label)}</a>')
     nav = "".join(links)
+    body_attr = f' class="{e(body_class)}"' if body_class else ""
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -99,9 +110,10 @@ def shell(title: str, active: str, body: str) -> str:
     article.blocker {{ border-left-color: #b91c1c; }}
     article.issue {{ border-left-color: #9a3412; }}
     .meta {{ color: #57534e; font-size: 0.85rem; margin-top: 0.25rem; }}
+    {extra_css}
   </style>
 </head>
-<body>
+<body{body_attr}>
   <nav>{nav}</nav>
   {body}
   <footer>
@@ -113,8 +125,12 @@ def shell(title: str, active: str, body: str) -> str:
 
 
 def write_site(conn: sqlite3.Connection, directory: Path) -> List[Path]:
-    """Write the workflow, the check pages, canonical BOM, and the reuse preview."""
+    """Write the workflow, the check pages, canonical BOM, compare, and the reuse preview."""
+    from app.services.canonicalization import build_canonical_model
     from app.services.report import build_snapshot, render_report_html
+
+    # Report CLI prepares the DB first; refill canonical before pages that need BOM.
+    build_canonical_model(conn)
 
     directory.mkdir(parents=True, exist_ok=True)
     written = [
@@ -122,14 +138,168 @@ def write_site(conn: sqlite3.Connection, directory: Path) -> List[Path]:
         directory / "normalize.html",
         directory / "proposals.html",
         directory / "canonical.html",
+        directory / "compare.html",
         directory / "report.html",
     ]
     written[0].write_text(render_workflow(conn), encoding="utf-8")
     written[1].write_text(render_normalize(conn), encoding="utf-8")
     written[2].write_text(render_proposals(conn), encoding="utf-8")
     written[3].write_text(render_canonical(conn), encoding="utf-8")
-    written[4].write_text(render_report_html(build_snapshot(conn)), encoding="utf-8")
+    written[4].write_text(render_compare(conn), encoding="utf-8")
+    written[5].write_text(render_report_html(build_snapshot(conn)), encoding="utf-8")
     return written
+
+
+def render_compare(conn: sqlite3.Connection) -> str:
+    """Static variant-pair comparison. All pairs in one file; script toggles visibility."""
+    from app.services.analysis import all_variant_pairs, compare_variants
+    from app.services.quality import blockers as quality_blockers
+
+    e = html.escape
+    pairs = all_variant_pairs(conn)
+    variant_refs = {left for left, right in pairs} | {right for left, right in pairs}
+
+    if "REGIO-STD" in variant_refs and "REGIO-NORDIC" in variant_refs:
+        default_left, default_right = _STD_NORDIC
+    elif pairs:
+        default_left, default_right = pairs[0]
+    else:
+        default_left, default_right = None, None
+
+    blocker_by_ref: Dict[str, Dict] = {}
+    for row in quality_blockers(conn):
+        ref = row.get("entity_ref")
+        if ref:
+            blocker_by_ref[ref] = row
+
+    select_options = []
+    sections = []
+    for lex_left, lex_right in pairs:
+        if {lex_left, lex_right} == set(_STD_NORDIC):
+            left_ref, right_ref = _STD_NORDIC
+        else:
+            left_ref, right_ref = lex_left, lex_right
+        comparison = compare_variants(conn, left_ref, right_ref)
+        section_id = f"pair-{left_ref}-{right_ref}"
+        is_default = left_ref == default_left and right_ref == default_right
+        hidden_cls = "" if is_default else " hidden"
+        selected = " selected" if is_default else ""
+        label = f"{left_ref} vs {right_ref}"
+        select_options.append(
+            f'<option value="{e(section_id)}"{selected}>{e(label)}</option>'
+        )
+
+        assembly_blocks = []
+        for asm in comparison["assemblies"]:
+            ratio = asm["overlap_ratio"]
+            high_cls = " high-overlap" if asm.get("high_overlap") else ""
+            counts = (
+                f"shared {asm['shared_count']}, "
+                f"left-only {asm['left_only_count']}, "
+                f"right-only {asm['right_only_count']}, "
+                f"unresolved {asm['unresolved_count']}, "
+                f"conflicts {asm['conflict_count']}, "
+                f"candidates {asm['candidate_count']}"
+            )
+            component_html = []
+            for comp in asm["components"]:
+                anchor = comp["anchor"]
+                blocker = blocker_by_ref.get(comp["ref"]) or blocker_by_ref.get(
+                    asm["assembly_ref"]
+                )
+                record_bits = []
+                for rec in comp.get("records") or []:
+                    record_bits.append(
+                        f"{e(str(rec.get('source_file') or ''))} "
+                        f"row {e(str(rec.get('source_row')))}"
+                    )
+                records_text = "; ".join(record_bits) if record_bits else "no source rows"
+                values_html = ""
+                if comp["label"] == "blocked" and blocker:
+                    vals = blocker.get("values") or []
+                    if vals:
+                        values_html = (
+                            f'<p class="meta">Both values: '
+                            f"{e(' and '.join(str(v) for v in vals))}</p>"
+                        )
+                    for src in blocker.get("sources") or []:
+                        values_html += (
+                            f'<p class="meta">{e(str(src.get("value") or ""))} — '
+                            f'{e(str(src.get("source_file") or ""))} '
+                            f'row {e(str(src.get("source_row")))}</p>'
+                        )
+                component_html.append(
+                    f'<div class="component" id="{e(anchor)}">'
+                    f'<p><a href="#{e(anchor)}"><strong>{e(comp["ref"])}</strong></a> '
+                    f'<span class="badge">{e(comp["label"])}</span></p>'
+                    f'<p class="meta">{records_text}</p>'
+                    f"{values_html}</div>"
+                )
+            assembly_blocks.append(
+                f'<article class="assembly{high_cls}">'
+                f'<p><strong>{e(asm["assembly_ref"])}</strong> '
+                f'overlap {e(str(ratio))} — {e(counts)}</p>'
+                f'{"".join(component_html)}</article>'
+            )
+
+        sections.append(
+            f'<section class="pair-section{hidden_cls}" id="{e(section_id)}" '
+            f'data-left="{e(left_ref)}" data-right="{e(right_ref)}">'
+            f"<h2>{e(label)}</h2>"
+            f'{"".join(assembly_blocks) if assembly_blocks else "<p>No assemblies.</p>"}'
+            f"</section>"
+        )
+
+    control = (
+        '<label for="pair-select">Variant pair </label>'
+        f'<select id="pair-select">{"".join(select_options)}</select>'
+        if select_options
+        else "<p>No variants to compare.</p>"
+    )
+    script = """
+<script>
+(function () {
+  var sel = document.getElementById("pair-select");
+  if (!sel) return;
+  function showPair(id) {
+    document.querySelectorAll(".pair-section").forEach(function (el) {
+      el.classList.add("hidden");
+    });
+    var target = document.getElementById(id);
+    if (target) target.classList.remove("hidden");
+  }
+  sel.addEventListener("change", function () { showPair(sel.value); });
+})();
+</script>
+"""
+    extra_css = """
+    body.compare-page { max-width: 1100px; }
+    .hidden { display: none; }
+    article.assembly.high-overlap {
+      background: #f7fee7;
+      border-left-color: #65a30d;
+    }
+    .component {
+      border-top: 1px solid #f5f5f4;
+      margin-top: 0.45rem;
+      padding-top: 0.35rem;
+    }
+    #pair-select { margin: 0.5rem 0 1rem; padding: 0.25rem 0.5rem; }
+"""
+    body = f"""
+  <h1>Compare variants</h1>
+  <p class="lede">Assembly overlap between two trains. Shared parts, one-sided parts, unresolved identity, blockers, and substitution candidates stay labeled separately. Pick a pair — the page already contains every combination.</p>
+  {control}
+  {"".join(sections)}
+  {script}
+"""
+    return shell(
+        "Cognyx — compare",
+        "compare.html",
+        body,
+        body_class="compare-page",
+        extra_css=extra_css,
+    )
 
 
 def render_workflow(conn: sqlite3.Connection) -> str:
