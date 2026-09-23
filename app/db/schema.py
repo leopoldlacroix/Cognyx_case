@@ -64,6 +64,7 @@ def create_schema(conn: sqlite3.Connection) -> None:
             quantity_raw TEXT,
             uom_raw TEXT,
             supplier_raw TEXT,
+            line_status_raw TEXT,
             variant_ref_normalized TEXT,
             assembly_ref_normalized TEXT,
             component_ref_normalized TEXT,
@@ -74,6 +75,9 @@ def create_schema(conn: sqlite3.Connection) -> None:
             FOREIGN KEY (source_file_id) REFERENCES source_file(id)
         )
     """)
+
+    # Existing databases created before line_status_raw was added.
+    _ensure_column(conn, "plm_bom_line", "line_status_raw", "TEXT")
 
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_plm_bom_line_variant_normalized

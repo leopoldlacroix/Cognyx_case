@@ -195,9 +195,11 @@ def ingest_all_files(conn: sqlite3.Connection, base_path: Path) -> Dict[str, Any
                 'variant_ref': 'variant_ref_raw',
                 'assembly_ref': 'assembly_ref_raw',
                 'component_ref': 'component_ref_raw',
+                'component_description': 'description_raw',
                 'quantity': 'quantity_raw',
                 'uom': 'uom_raw',
                 'supplier_name': 'supplier_raw',
+                'line_status': 'line_status_raw',
             },
         },
         {
@@ -430,8 +432,9 @@ def _apply_normalization(
         raw_comp = raw_row.get('component_ref')
         generic_comp = normalize_reference(raw_comp)
         insert_values['component_ref_normalized'] = apply_reference_aliases(generic_comp, config)
-        # Description
-        insert_values['description_normalized'] = normalize_description(raw_row.get('description_raw'))
+        # Description (mapped from component_description → description_raw)
+        desc_raw = insert_values.get('description_raw') or raw_row.get('component_description')
+        insert_values['description_normalized'] = normalize_description(desc_raw)
         # UOM: generic -> alias
         raw_uom = raw_row.get('uom')
         generic_uom = normalize_uom(raw_uom)
