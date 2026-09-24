@@ -35,7 +35,7 @@ canonical model                 app/services/canonicalization.py
                                            app/services/report.py
 ```
 
-`prepare_database` in `app/services/report.py` runs ingest, ERP and note normalization, extraction, and reconciliation. `write_site` then rebuilds the canonical model and writes the six HTML files. `cli report` does both. `cli serve` rewrites the pages and, on each Accept / Reject / Redirect, calls `decide_reconciliation` and `write_site` again. It does not re-ingest, so a decision is not wiped by the next click.
+`prepare_database` in `app/services/report.py` runs ingest, ERP and note normalization, extraction, and reconciliation. `write_site` then rebuilds the canonical model and writes the six HTML files. Those files are snapshots of the queries at that moment. Section 8 says which command rewrites them, and how a Proposals button writes back to SQLite.
 
 SQLite tables, in the order they fill:
 
@@ -57,8 +57,8 @@ SQLite tables, in the order they fill:
 
 For each file:
 
-1. Hash the file and register it in `source_file`.
-2. If that file was already loaded into the target table, stop. The load is idempotent.
+1. Hash the file and register it in `source_file`. The unique key is `(source_system, file_hash)`.
+2. If that hash already has rows in the target table, skip the file. The same bytes are not loaded twice. A replacement file has a new hash, so it is a new `source_file` and its rows are added beside the previous load. Delete `data/processed/cognyx.db` before `report` when the new extracts should replace the old ones.
 3. Read the CSV with the header as row 1. The first data row is source row 2.
 4. Hard-validate the row. On failure, insert the raw dict into `quarantine` with `source_file_id`, `source_row`, and the reason, then continue with the next row.
 5. Soft-check the row. Each warning goes to `warnings`. The row continues.
@@ -236,18 +236,52 @@ Further issue types, appended after those three:
 
 ## 8. Pages
 
-`write_site` calls `build_canonical_model`, then writes:
+The six HTML files under `data/processed/` are generated snapshots. Each renderer runs SQL, turns the rows into HTML, and `write_site` writes the file. The browser does not query SQLite while you read a page. Opening `proposals.html` from disk shows the last generation. The references and counts in that file were copied out of the database at that moment.
 
-| File | Renderer | Role |
+`write_site` (`app/services/html_pages.py`) always does the same thing:
+
+1. `build_canonical_model`, so an accepted identity is visible on the official list before the pages are rendered.
+2. One renderer per page. Each function returns a single HTML string.
+3. Overwrite all six files in the output directory.
+
+| File | Renderer | What was queried |
 |---|---|---|
-| `workflow.html` | `render_workflow` | Step list from live counts |
+| `workflow.html` | `render_workflow` | Pipeline counts at generation time |
 | `normalize.html` | `render_normalize` | Raw versus cleaned, quarantine, note excerpts |
-| `proposals.html` | `render_proposals` | Every pending proposal, plus identity, similarity, and Nordic summaries |
+| `proposals.html` | `render_proposals` | Component proposals, plus identity, similarity, and Nordic summaries |
 | `canonical.html` | `render_canonical` | Accepted identity clusters and unresolved identity lines |
-| `compare.html` | `render_compare` | All variant pairs, one visible |
+| `compare.html` | `render_compare` | Every variant pair, all of them in the file |
 | `report.html` | `render_report_html` | Already reused, worth a look, Nordic-only, blocked, data issues |
 
-The proposals form posts to `/review/decide` on the local server. Opened as a file, the form has nowhere to send the decision.
+`compare.html` is the only page with script in the browser. Every pair is already in the file. The script shows one section and hides the others. It does not ask the database for a new pair.
+
+### Which command rewrites the pages
+
+Run these from the repo root.
+
+| Command | Database | Rewrites HTML? | Reloads the CSVs? |
+|---|---|---|---|
+| `python -m app.backend.cli report` | `data/processed/cognyx.db` | Yes. `prepare_database`, then `write_site` | Yes, from `data/inputs/` |
+| `python -m app.backend.cli serve` | `data/processed/cognyx.db` | Yes, once at startup, then again after each saved decision | No |
+| `python -m app.backend.cli review decide …` | `./cognyx.db` unless `--db` is set | No. The next `report` or `serve` picks up the decision | No |
+| `python -m app.backend.cli analyze …` | `./cognyx.db` unless `--db` is set | No. Writes a JSON file beside the HTML | No |
+
+`report` and `serve` are the two commands that default to `data/processed/cognyx.db`. `status`, `review`, and `analyze` default to `cognyx.db` in the current directory. Pass `--db data/processed/cognyx.db` when those commands should read the same file the pages were built from.
+
+A new PLM, BOM, or notes drop replaces the CSVs under `data/inputs/` (same six filenames). Then delete `data/processed/cognyx.db` and run `report`. `serve` alone will not see the new files, because it never calls `prepare_database`.
+
+### How a button writes back
+
+`proposals.html` is the only page with a form, and only for `component_reconciliation` rows whose status is `PENDING`. Each row is rendered as a form that posts to `/review/decide` with the proposal id and `accept`, `reject`, or `redirect`. Assembly and supplier proposals are counted on the page. They are not decided from it.
+
+Opened as a file, that form has no server. The decision is not saved.
+
+`python -m app.backend.cli serve` starts `app/backend/serve.py` on `127.0.0.1:8765` and prints `http://127.0.0.1:8765/proposals.html`. It does not launch a browser. It is a small `http.server`, not a web framework.
+
+- **GET** reads an `.html` or `.json` file from `data/processed/` and returns those bytes. It does not run SQL.
+- **POST `/review/decide`** calls `decide_reconciliation` on the open SQLite connection, then `write_site`, which re-queries the database and overwrites all six HTML files. The browser is sent back to `/proposals.html`, which is the new snapshot.
+
+The click does not re-ingest. The source spreadsheets stay as they were, and the decision stays on the proposal row. Until the next click, or the next `report`, the pages are static again.
 
 ## What is deliberately absent
 
